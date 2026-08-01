@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true;
+    }
+
+    function notChangingPrivileges() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['admin', 'tier']);
+    }
+
+    match /users/{userId} {
+      // Public card pages need to read profiles without login
+      allow read: if true;
+      allow create: if isOwner(userId);
+      allow update: if (isOwner(userId) && notChangingPrivileges()) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /usernames/{username} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /invites/{inviteId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.inviterId == request.auth.uid;
+      allow update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /inviteRequests/{requestId} {
+      // Anyone can request an invite (no account yet)
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'name', 'chapter', 'initiationYear', 'email', 'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.chapter is string
+        && request.resource.data.chapter.size() >= 2
+        && request.resource.data.chapter.size() <= 120
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.initiationYear is int
+        && request.resource.data.initiationYear >= 1911
+        && request.resource.data.initiationYear <= 2100
+        && request.resource.data.createdAt is string;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

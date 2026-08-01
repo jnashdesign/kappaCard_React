@@ -1,0 +1,60 @@
+.privacy-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--crimson) 8%, white);
+  border: 1px solid color-mix(in srgb, var(--crimson) 18%, transparent);
+  flex-shrink: 0;
+}
+
+.privacy-option {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.privacy-option.is-active {
+  background: var(--crimson);
+  color: white;
+}
+
+.privacy-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.field-with-privacy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field-with-privacy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.field-with-privacy-header > span {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.always-public-note {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

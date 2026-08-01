@@ -1,0 +1,227 @@
+:root {
+  --crimson: #6d0e0f;
+  --crimson-deep: #4a090a;
+  --gold: #c5a46a;
+  --cream: #f3ebe0;
+  --ink: #1c1412;
+  --muted: #6b5c56;
+  --panel: rgba(255, 252, 247, 0.92);
+  --danger: #9b1c1c;
+  --ok: #1f6b3a;
+  --font-display: "Libre Baskerville", Georgia, serif;
+  --font-body: "Source Sans 3", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(197, 164, 106, 0.28), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(109, 14, 15, 0.18), transparent 45%),
+    linear-gradient(160deg, #f7f1e8 0%, #ebe1d4 50%, #e7d7c8 100%);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+h1,
+h2,
+h3,
+.brand-name,
+.brand-mark {
+  font-family: var(--font-display);
+}
+
+a {
+  color: var(--crimson);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--crimson) 16%, transparent);
+  border-radius: 18px;
+  padding: 1.5rem;
+}
+
+.hero {
+  display: grid;
+  gap: 1.25rem;
+  padding: 2rem 0 1rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.05;
+  color: var(--crimson-deep);
+}
+
+.hero p,
+.lede {
+  margin: 0;
+  max-width: 38rem;
+  font-size: 1.1rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--crimson) 22%, #ccc);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  background: white;
+  color: var(--ink);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 999px;
+  padding: 0.75rem 1.15rem;
+  background: var(--crimson);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.main button, .main .button {
+  min-width: 200px;
+}
+
+button.secondary,
+.button.secondary {
+  background: transparent;
+  color: var(--crimson);
+  border: 1.5px solid var(--crimson);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.success {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 35%, white);
+  color: var(--crimson-deep);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 720px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-frame {
+  width: min(100%, 420px);
+  margin: 0 auto;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gold) 50%, white);
+}
+
+.avatar-preview {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--crimson) 35%, white);
+  background: white;
+}
+
+.avatar-placeholder {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--crimson) 12%, white);
+  color: var(--crimson);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.list-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid color-mix(in srgb, var(--crimson) 12%, transparent);
+}
