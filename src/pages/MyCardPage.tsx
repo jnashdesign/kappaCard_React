@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isUsablePhotoUrl } from '../lib/photos';
 import { profilePhotoToDataUrl } from '../lib/storage';
 import { canUseCardFeatures, getUserById } from '../lib/users';
+import { recordCardImageDownload } from '../lib/userStats';
 import { formatInviter } from '../lib/vcard';
 
 export default function MyCardPage() {
@@ -107,6 +108,7 @@ export default function MyCardPage() {
       link.download = `kappa-card-${profile.username}.png`;
       link.href = dataUrl;
       link.click();
+      void recordCardImageDownload(profile).catch(() => undefined);
       setMessage('Card image downloaded. On iPhone, open the image and choose Save to Photos.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save card image.');
@@ -146,8 +148,8 @@ export default function MyCardPage() {
                 data-profile-photo="true"
                 onError={() => setPhotoFailed(true)}
                 style={{
-                  width: 100,
-                  height: 100,
+                  width: 125,
+                  height: 125,
                   borderRadius: '50%',
                   objectFit: 'cover',
                   border: '2px solid rgba(245, 232, 210, 0.85)',
@@ -170,7 +172,7 @@ export default function MyCardPage() {
               <div
                 style={{
                   marginTop: '20px',
-                  width: 'calc(100% - 40px)',
+                  width: 'calc(100% + 10px)',
                   borderRadius: 16,
                   background: 'white',
                   padding: '10px 10px 12px',

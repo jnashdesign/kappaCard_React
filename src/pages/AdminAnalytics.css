@@ -1,0 +1,133 @@
+.admin-analytics button {
+  min-width: inherit !important;
+}
+
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-kpi {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--crimson) 14%, transparent);
+  background: var(--panel);
+}
+
+.admin-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admin-kpi strong {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  color: var(--crimson-deep);
+}
+
+.admin-chart {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(2.5rem, 1fr);
+  gap: 0.35rem;
+  align-items: end;
+  min-height: 200px;
+  padding: 0.5rem 0 0;
+  overflow-x: auto;
+}
+
+.admin-chart-col {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  align-content: end;
+}
+
+.admin-chart-bar {
+  width: 100%;
+  max-width: 2.25rem;
+  border-radius: 8px 8px 2px 2px;
+  background: linear-gradient(180deg, var(--crimson) 0%, var(--crimson-deep) 100%);
+}
+
+.admin-chart-value {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-chart-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.admin-funnel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-funnel-step {
+  display: grid;
+  grid-template-columns: 11rem 3rem 1fr;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.admin-funnel-bar {
+  height: 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 55%, var(--crimson));
+}
+
+.admin-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--crimson) 12%, transparent);
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 960px) {
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-split {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-funnel-step {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}

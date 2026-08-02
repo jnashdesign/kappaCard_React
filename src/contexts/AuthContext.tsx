@@ -20,9 +20,11 @@ import {
 import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
 import {
   createUserProfile,
+  deleteMyAccount,
   getUserById,
   updateUserProfile,
 } from '../lib/users';
+import { recordSessionLogin } from '../lib/userStats';
 import type { MembershipTier, UserProfile } from '../types';
 
 interface SignUpInput {
@@ -48,6 +50,7 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   saveProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -78,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const next = await getUserById(user.uid);
           setProfile(next);
+          if (next) {
+            void recordSessionLogin(user.uid)
+              .then(() => refreshProfile())
+              .catch(() => undefined);
+          }
         } catch (error) {
           console.error('Failed to load profile', error);
           setProfile(null);
@@ -89,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return unsub;
-  }, []);
+  }, [refreshProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!auth) throw new Error('Firebase is not configured.');
@@ -161,6 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [profile, refreshProfile]
   );
 
+  const deleteAccount = useCallback(
+    async (password?: string) => {
+      if (!profile) throw new Error('Not signed in.');
+      await deleteMyAccount(profile, { password });
+      setProfile(null);
+      setFirebaseUser(null);
+    },
+    [profile]
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       firebaseUser,
@@ -175,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       logout,
       saveProfile,
+      deleteAccount,
     }),
     [
       firebaseUser,
@@ -188,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       logout,
       saveProfile,
+      deleteAccount,
     ]
   );
 

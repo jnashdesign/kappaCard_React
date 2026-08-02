@@ -5,28 +5,47 @@ import {
   listInviteRequests,
   setInviteRequestStatus,
 } from '../lib/inviteRequests';
-import { listUsers, setUserAdmin, setUserTier } from '../lib/users';
+import { listAccountDeletions, listAllInvites, listUsers, setUserAdmin, setUserTier } from '../lib/users';
 import { useEffect, useState } from 'react';
-import type { InviteRequest, MembershipTier, UserProfile } from '../types';
+import type {
+  AccountDeletion,
+  InviteRecord,
+  InviteRequest,
+  MembershipTier,
+  UserProfile,
+} from '../types';
+import AdminAnalytics from './AdminAnalytics';
 
 export default function AdminPage() {
   const { profile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [invites, setInvites] = useState<InviteRecord[]>([]);
+  const [deletions, setDeletions] = useState<AccountDeletion[]>([]);
   const [inviteRequests, setInviteRequests] = useState<InviteRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'analytics' | 'ops'>('analytics');
 
   async function refresh() {
-    const [nextUsers, nextRequests] = await Promise.all([listUsers(), listInviteRequests()]);
+    const [nextUsers, nextRequests, nextInvites, nextDeletions] = await Promise.all([
+      listUsers(),
+      listInviteRequests(),
+      listAllInvites(),
+      listAccountDeletions(),
+    ]);
     setUsers(nextUsers.sort((a, b) => a.name.localeCompare(b.name)));
     setInviteRequests(nextRequests);
+    setInvites(nextInvites);
+    setDeletions(nextDeletions);
   }
 
   useEffect(() => {
     if (!profile?.admin) return;
-    void refresh().catch((err) => setError(err instanceof Error ? err.message : 'Failed to load admin data.'));
-  }, [profile?.admin]);
+    void refresh().catch((err) =>
+      setError(err instanceof Error ? err.message : 'Failed to load admin data.')
+    );
+  }, [profile?.admin, profile?.id, profile?.stats?.logins]);
 
   if (!profile) return <div className="panel">Loading…</div>;
   if (!profile.admin) return <Navigate to="/my-card" replace />;
@@ -98,117 +117,140 @@ export default function AdminPage() {
   }
 
   return (
-    <section className="stack">
+    <section className="stack admin-analytics">
       <div>
         <h1>Admin</h1>
         <p className="muted">
-          Review invite requests, manage membership tiers, and grant admin access.
+          Track adoption and usage, review invite requests, and manage membership tiers.
         </p>
+        <div className="row" style={{ marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className={tab === 'analytics' ? undefined : 'secondary'}
+            onClick={() => setTab('analytics')}
+          >
+            Analytics
+          </button>
+          <button
+            type="button"
+            className={tab === 'ops' ? undefined : 'secondary'}
+            onClick={() => setTab('ops')}
+          >
+            Members &amp; requests
+          </button>
+        </div>
       </div>
 
       {error && <p className="error">{error}</p>}
       {message && <p className="success">{message}</p>}
 
-      <div className="panel stack">
-        <h2 style={{ margin: 0 }}>Invite requests ({pendingRequests.length} pending)</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          Verify name, chapter, and year against membership records before approving. Choose
-          paywalled (default — they pay $9.99 later) or complimentary Basic for adoption.
-        </p>
-        {pendingRequests.length === 0 && <p className="muted">No pending requests.</p>}
-        {pendingRequests.map((request) => (
-          <div key={request.id} className="list-card">
-            <strong>{request.name}</strong>
-            <span className="muted">
-              {request.chapter} ◆ {request.initiationYear}
-            </span>
-            <span className="muted">{request.email}</span>
-            <span className="muted">
-              Requested {request.createdAt ? new Date(request.createdAt).toLocaleString() : '—'}
-            </span>
-            <div className="row">
-              <button
-                type="button"
-                disabled={busyId === request.id}
-                onClick={() => void onApprove(request, false)}
-              >
-                {busyId === request.id ? 'Working…' : 'Approve (paywalled)'}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busyId === request.id}
-                onClick={() => void onApprove(request, true)}
-              >
-                Approve + complimentary Basic
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busyId === request.id}
-                onClick={() => void onDecline(request)}
-              >
-                Decline
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {reviewedRequests.length > 0 && (
-          <>
-            <h3 style={{ margin: '0.5rem 0 0' }}>Recent reviews</h3>
-            {reviewedRequests.slice(0, 8).map((request) => (
+      {tab === 'analytics' ? (
+        <AdminAnalytics users={users} invites={invites} deletions={deletions} />
+      ) : (
+        <>
+          <div className="panel stack">
+            <h2 style={{ margin: 0 }}>Invite requests ({pendingRequests.length} pending)</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Verify name, chapter, and year against membership records before approving. Choose
+              paywalled (default — they pay $9.99 later) or complimentary Basic for adoption.
+            </p>
+            {pendingRequests.length === 0 && <p className="muted">No pending requests.</p>}
+            {pendingRequests.map((request) => (
               <div key={request.id} className="list-card">
-                <strong>
-                  {request.name}{' '}
-                  <span className="badge">{request.status}</span>
-                </strong>
+                <strong>{request.name}</strong>
                 <span className="muted">
-                  {request.chapter} ◆ {request.initiationYear} · {request.email}
+                  {request.chapter} ◆ {request.initiationYear}
                 </span>
-                {request.inviteCode && (
-                  <span className="muted">Invite code: {request.inviteCode}</span>
-                )}
+                <span className="muted">{request.email}</span>
+                <span className="muted">
+                  Requested {request.createdAt ? new Date(request.createdAt).toLocaleString() : '—'}
+                </span>
+                <div className="row">
+                  <button
+                    type="button"
+                    disabled={busyId === request.id}
+                    onClick={() => void onApprove(request, false)}
+                  >
+                    {busyId === request.id ? 'Working…' : 'Approve (paywalled)'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busyId === request.id}
+                    onClick={() => void onApprove(request, true)}
+                  >
+                    Approve + complimentary Basic
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busyId === request.id}
+                    onClick={() => void onDecline(request)}
+                  >
+                    Decline
+                  </button>
+                </div>
               </div>
             ))}
-          </>
-        )}
-      </div>
 
-      <div className="panel stack">
-        <h2 style={{ margin: 0 }}>Members ({users.length})</h2>
-        {users.map((user) => (
-          <div key={user.id} className="list-card">
-            <strong>
-              {user.name} {user.admin ? '· ADMIN' : ''}
-            </strong>
-            <span className="muted">
-              @{user.username} · {user.email} · invited by @{user.invitedByUsername || '—'}
-            </span>
-            <div className="row">
-              <label style={{ minWidth: 160 }}>
-                Tier
-                <select
-                  value={user.tier}
-                  onChange={(e) => void onTierChange(user, e.target.value as MembershipTier)}
-                >
-                  <option value="free">free</option>
-                  <option value="basic">basic</option>
-                  <option value="premium">premium</option>
-                </select>
-              </label>
-              <button
-                style={{ marginTop: '25px' }}
-                type="button"
-                className="secondary"
-                onClick={() => void onToggleAdmin(user)}
-              >
-                {user.admin ? 'Revoke admin' : 'Make admin'}
-              </button>
-            </div>
+            {reviewedRequests.length > 0 && (
+              <>
+                <h3 style={{ margin: '0.5rem 0 0' }}>Recent reviews</h3>
+                {reviewedRequests.slice(0, 8).map((request) => (
+                  <div key={request.id} className="list-card">
+                    <strong>
+                      {request.name}{' '}
+                      <span className="badge">{request.status}</span>
+                    </strong>
+                    <span className="muted">
+                      {request.chapter} ◆ {request.initiationYear} · {request.email}
+                    </span>
+                    {request.inviteCode && (
+                      <span className="muted">Invite code: {request.inviteCode}</span>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
-        ))}
-      </div>
+
+          <div className="panel stack">
+            <h2 style={{ margin: 0 }}>Members ({users.length})</h2>
+            {users.map((user) => (
+              <div key={user.id} className="list-card">
+                <strong>
+                  {user.name} {user.admin ? '· ADMIN' : ''}
+                  {user.activatedAt ? ' · Activated' : ''}
+                </strong>
+                <span className="muted">
+                  @{user.username} · {user.email} · invited by @{user.invitedByUsername || '—'}
+                </span>
+                <div className="row">
+                  <label style={{ minWidth: 200 }}>
+                    Tier
+                    <select
+                      value={user.tier}
+                      onChange={(e) => void onTierChange(user, e.target.value as MembershipTier)}
+                    >
+                      <option value="free">free</option>
+                      <option value="basic">basic</option>
+                      <option value="premium">premium</option>
+                    </select>
+                  </label>
+                  <button
+                    style={{ margin: '52px 10px 25px 10px', borderRadius: '10px !important' }}
+                    type="button"
+                    className="primary"
+                    onClick={() => void onToggleAdmin(user)}
+                  >
+                    {user.admin ? 'Revoke admin' : 'Make admin'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }

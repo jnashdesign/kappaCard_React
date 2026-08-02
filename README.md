@@ -15,6 +15,7 @@ Sibling of `kappacard` (legacy React Native / Expo app) at:
 - Basic unlocks Card image generation, invites, and connection requests
 - Admins can grant/revoke admin and set tiers
 - Admins can issue **complimentary Basic** invites (or tag the chapter share code); regular invites stay paywalled for $9.99 unlock
+- Admin **Analytics** tab (free baseline): new registrations per period, funnel, recruiter/catalyst boards, chapter density
 - No member directory, location, or push notifications
 
 ## Quick start

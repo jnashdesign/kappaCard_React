@@ -10,6 +10,16 @@ export interface SocialMedia {
   snapchat?: string;
 }
 
+/** Lifetime product-action counters (Phase 0 analytics). */
+export interface UserStats {
+  logins: number;
+  invitesCreated: number;
+  profileUpdates: number;
+  cardImageDownloads: number;
+  cardViews: number;
+  contactDownloads: number;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -23,6 +33,8 @@ export interface UserProfile {
   occupation?: string;
   currentEmployer?: string;
   currentCity?: string;
+  /** Optional region/state for density reporting */
+  province?: string;
   profilePicture?: string;
   /** Storage object path for reliable card export via getBlob */
   profilePicturePath?: string;
@@ -37,6 +49,12 @@ export interface UserProfile {
   inviteCode: string;
   tier: MembershipTier;
   admin: boolean;
+  stats: UserStats;
+  profileCompletedAt?: string;
+  activatedAt?: string;
+  firstCardImageDownloadedAt?: string;
+  firstCardViewedAt?: string;
+  firstContactDownloadedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +106,21 @@ export interface InviteRecord {
 
 export type InviteRequestStatus = 'pending' | 'approved' | 'declined';
 
+/** Survives account wipe — admin analytics for churn. */
+export interface AccountDeletion {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  name: string;
+  chapter: string;
+  province?: string;
+  initiationYear?: number;
+  tier: MembershipTier;
+  wasActivated: boolean;
+  deletedAt: string;
+}
+
 /** Public request for an invite — admin verifies membership manually */
 export interface InviteRequest {
   id: string;
@@ -104,6 +137,7 @@ export interface InviteRequest {
 
 export const RESERVED_USERNAMES = [
   'admin',
+  'analytics',
   'login',
   'signup',
   'kard',

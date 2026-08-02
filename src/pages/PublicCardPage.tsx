@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserById, getUserByUsername } from '../lib/users';
+import { recordPublicCardEngagement } from '../lib/userStats';
 import { isUsablePhotoUrl } from '../lib/photos';
 import { formatUsPhone, phoneDigits } from '../lib/phone';
 import { toPublicProfile } from '../lib/privacy';
@@ -102,6 +103,12 @@ export default function PublicCardPage() {
 
         setResolvedInviter(fields);
         setInviterLabel(formatInviter(fields));
+
+        const viewKey = `kappa:cardView:${result.id}`;
+        if (!sessionStorage.getItem(viewKey)) {
+          sessionStorage.setItem(viewKey, '1');
+          void recordPublicCardEngagement(result.id, 'cardViews', result).catch(() => undefined);
+        }
       })
       .catch((err) => {
         if (!active) return;
@@ -132,11 +139,13 @@ export default function PublicCardPage() {
   };
 
   async function onSaveContact() {
+    if (!user) return;
     setError(null);
     setMessage(null);
     setSavingContact(true);
     try {
       const result = await downloadVCard(vcardUser);
+      void recordPublicCardEngagement(user.id, 'contactDownloads', user).catch(() => undefined);
       if (vcardUser.profilePicture && !result.includedPhoto) {
         setMessage(
           'Contact downloaded, but the photo could not be embedded. Try again in a moment.'

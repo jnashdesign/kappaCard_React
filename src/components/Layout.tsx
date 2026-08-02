@@ -76,16 +76,16 @@ export default function Layout() {
               </NavLink>
               {profile.username ? (
                 <NavLink to={`/card/${profile.username}`} onClick={closeMenu}>
-                  Profile
+                  MyProfile
                 </NavLink>
               ) : (
                 <NavLink to="/profile" onClick={closeMenu}>
-                  Profile
+                  My Profile
                 </NavLink>
               )}
               {unlocked && (
                 <NavLink to="/invites" onClick={closeMenu}>
-                  Invites
+                  My Invites
                 </NavLink>
               )}
               {!unlocked && (
@@ -95,10 +95,10 @@ export default function Layout() {
               )}
               {profile.admin && (
                 <NavLink to="/admin" onClick={closeMenu}>
-                  Admin
+                  Admin Dashboard
                 </NavLink>
               )}
-              <button style={{ backgroundColor: 'var(--crimson)', color: 'white', borderRadius: '5px', padding: '10px 20px' }} type="button" className="linkish" onClick={() => void onLogout()}>
+              <button type="button" className="primary" onClick={() => void onLogout()}>
                 Log out
               </button>
             </>
@@ -179,10 +179,7 @@ export default function Layout() {
       </main>
 
       <footer className="footer">
-        <p>
-          Kappa Card — share your contact card with a scan.{' '}
-          <Link to="/pricing">Pricing</Link>
-        </p>
+        <p>&copy; MyKappaCard {new Date().getFullYear()}</p>
       </footer>
     </div>
   );

@@ -126,10 +126,10 @@
 }
 
 .footer {
-  border-top: 1px solid color-mix(in srgb, var(--crimson) 18%, transparent);
   padding: 1.25rem;
-  text-align: center;
-  color: var(--muted);
+  text-align: left;
+  color: white;
+  background: var(--crimson-deep);
   font-size: 0.9rem;
 }
 
@@ -172,6 +172,10 @@
   .nav.is-open {
     display: flex;
   }
+
+  .nav.is-open button.primary {
+    margin-top: 10px;
+}
 
   .nav a,
   .nav .linkish {

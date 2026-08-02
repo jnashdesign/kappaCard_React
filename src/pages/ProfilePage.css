@@ -48,8 +48,8 @@
 
 .profile-photo-control {
   position: relative;
-  width: 108px;
-  height: 108px;
+  width: 200px;
+  height: 200px;
   border: none;
   padding: 0;
   border-radius: 50%;
@@ -204,6 +204,28 @@
 
 .profile-section:nth-of-type(5) {
   animation-delay: 0.2s;
+}
+
+.profile-section:nth-of-type(6) {
+  animation-delay: 0.25s;
+}
+
+.profile-danger {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.profile-danger .profile-section-header h2 {
+  color: var(--danger);
+}
+
+.profile-delete-button {
+  justify-self: start;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.profile-delete-button:disabled {
+  opacity: 0.45;
 }
 
 @keyframes profile-section-in {

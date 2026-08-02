@@ -20,12 +20,20 @@ service cloud.firestore {
         .hasAny(['admin', 'tier']);
     }
 
+    // Anonymous/public viewers may bump engagement counters on a profile.
+    function publicEngagementOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['stats', 'firstCardViewedAt', 'firstContactDownloadedAt', 'updatedAt']);
+    }
+
     match /users/{userId} {
       // Public card pages need to read profiles without login
       allow read: if true;
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && notChangingPrivileges()) || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if (isOwner(userId) && notChangingPrivileges())
+        || isAdmin()
+        || publicEngagementOnly();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     match /usernames/{username} {
@@ -70,7 +78,8 @@ service cloud.firestore {
             ])
         )
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.inviterId == request.auth.uid);
     }
 
     match /inviteRequests/{requestId} {
@@ -93,6 +102,20 @@ service cloud.firestore {
         && request.resource.data.initiationYear <= 2100
         && request.resource.data.createdAt is string;
       allow read, update, delete: if isAdmin();
+    }
+
+    // Written by the member at delete-time; admins read for churn analytics.
+    match /accountDeletions/{deletionId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'userId', 'username', 'email', 'name', 'chapter', 'province',
+          'initiationYear', 'tier', 'wasActivated', 'deletedAt', 'createdAt'
+        ])
+        && request.resource.data.username is string
+        && request.resource.data.deletedAt is string;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     // Written only by Admin SDK (Stripe webhook). Clients cannot read/write.

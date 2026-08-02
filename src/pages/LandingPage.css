@@ -24,10 +24,10 @@
   background: linear-gradient(160deg, #4a090a 0%, #6d0e0f 48%, #8a1a1c 100%);
   color: #f7f1e8;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: .5fr 1fr;
   gap: 1.5rem;
   align-items: center;
-  padding: 2rem 1.75rem;
+  padding: 0.2rem 1.75rem;
 }
 
 .landing-hero::before {
@@ -99,6 +99,7 @@
   display: grid;
   place-items: center;
   animation: landing-card-in 0.55s ease-out 0.1s both;
+  margin: 0 -30px;
 }
 
 @keyframes landing-card-in {
@@ -318,5 +319,11 @@
   .landing-hero-visual,
   .landing-section {
     animation: none;
+  }
+}
+
+@media (max-width: 600px) {
+.landing-hero-visual {
+    margin: 0 -25px 0 -30px;
   }
 }

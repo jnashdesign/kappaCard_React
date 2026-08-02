@@ -6,6 +6,11 @@ export function normalizeUsername(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, '_');
 }
 
+/** Live input: lowercase only; keep letters, numbers, underscore. */
+export function sanitizeUsernameInput(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9_]/g, '');
+}
+
 export function validateUsername(input: string): string | null {
   const username = normalizeUsername(input);
 

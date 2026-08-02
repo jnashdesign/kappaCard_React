@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import chapters from '../data/chapters';
 import { useAuth } from '../contexts/AuthContext';
-import { suggestUsernameFromName } from '../lib/username';
+import { sanitizeUsernameInput, suggestUsernameFromName } from '../lib/username';
 
 export default function CompleteProfilePage() {
   const { firebaseUser, completeGoogleSignup, profile } = useAuth();
@@ -78,7 +78,16 @@ export default function CompleteProfilePage() {
         </label>
         <label>
           Username
-          <input value={username} onChange={(e) => setUsername(e.target.value)} required />
+          <input
+            value={username}
+            onChange={(e) => setUsername(sanitizeUsernameInput(e.target.value))}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            pattern="[a-z0-9_]+"
+            title="Lowercase letters, numbers, and underscores only"
+            required
+          />
         </label>
         <label>
           Chapter of initiation

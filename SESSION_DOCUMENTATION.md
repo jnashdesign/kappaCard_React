@@ -119,12 +119,15 @@ Updated: 2026-07-29 — switched `.env.local` to KappaCards config.
 ## Still to do / follow-ups
 
 - Deploy Stripe secrets + Cloud Functions + webhook endpoint (test mode first) — code ready
+- Deploy updated Firestore rules (public engagement bumps + payments + complimentary invites)
 - Enable Google provider in Firebase console + authorized domains
 - Polish Card visual design / additional templates
 - Harden username alias redirect UX with HTTP-level redirects if moving to SSR/hosting later
 - Replace solid-color PWA icon placeholders with branded artwork
 - Optional: remove leftover `src/lib/connections.ts` / types when networking returns as a deliberate feature
 - Optional: Stripe Customer Portal / receipts polish; premium tier products later
+- Optional Phase 1 analytics: `analyticsEvents` + Cloud Function daily rollups when member count outgrows client aggregation
+
 
 ## Why these choices
 Keep the viral action (scan → contacts) fast and durable (static QR), while membership integrity stays invite-based and admin-auditable. Building as a sibling repo/app avoids mixing the new PWA with the Expo mobile codebase.
@@ -151,7 +154,30 @@ Keep the viral action (scan → contacts) fast and durable (static QR), while me
 - Admin invite-request approval: **Approve (paywalled)** vs **Approve + complimentary Basic**.
 - Firestore rules: only admins may create/update `grantsBasic: true`.
 
-## Session: Open Graph meta (2026-08-01)
+## Session: Account deletion (2026-08-02)
 
-- Added Open Graph + Twitter Card tags in `index.html` (title, description, canonical, 1200×630 `og-image.png`).
-- Absolute URLs use primary custom domain `https://mykappacard.com` (also used as Stripe/vCard origin fallback).
+- Profile page **Delete account** section: confirm by typing username.
+- Deletes Auth user, `users` doc, username aliases, invites created by the member, and profile photos.
+- Invitees keep their accounts; Firestore rules allow owners to delete their user doc and invites.
+- Before wipe, writes `accountDeletions` log (admin-readable) for churn analytics: chart metric, KPI, recent list.
+
+## Session: Admin analytics Phase 0 (2026-08-02)
+
+- Free baseline: per-user `stats` counters + milestone timestamps (`profileCompletedAt`, `activatedAt`, first card/view/contact).
+- Instrumented login, invite create, profile save, card image download, public card view (session-debounced), contact download.
+- Admin → **Analytics** tab: new-per-period chart, activation funnel, recruiter/catalyst boards, who-is-active, chapter density, year/city/province breakdowns.
+- Optional `province` on profile. Firestore allows public engagement bumps limited to stats/milestone keys.
+- Phase 1 (events + Cloud Function daily rollups) deferred until this outgrows.
+
+## Session: Auth orphan + signup latency (2026-08-02)
+
+### Email still “taken” after delete
+- Root cause: Firestore/profile cleanup ran **before** `deleteUser()`. When Firebase threw `auth/requires-recent-login`, the Auth record (and email) stayed while the app profile was gone.
+- Fix: **reauthenticate first** (password field for email/password; Google popup for Google), then wipe data, then delete Auth.
+- **Existing orphans**: delete the email manually in Firebase Console → Authentication → Users. Signup cannot reclaim an Auth email that still exists.
+
+### Slow ~10s signup on paywalled invite
+- Expected destination: free tier → My Card paywall / Unlock Basic → pricing. Complimentary (`grantsBasic`) invites skip that.
+- Latency came from sequential Firestore work in `createUserProfile`: username availability (2 reads), invite query, optional inviter fetch, then user doc → claimUsername (re-checked availability) → personal invite → re-fetched invite to mark used.
+- Fix: parallel username reads; skip second availability check on claim; write user + username + personal invite in `Promise.all`; mark redeemed invite without a redundant getDoc.
+

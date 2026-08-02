@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PrivacyToggle from '../components/PrivacyToggle';
 import { useAuth } from '../contexts/AuthContext';
+import KAPPA_PROVINCES from '../data/provinces';
 import { isUsablePhotoUrl } from '../lib/photos';
 import {
   normalizeFieldPrivacy,
@@ -11,6 +12,7 @@ import {
 import { uploadProfilePhoto } from '../lib/storage';
 import { formatUsPhone } from '../lib/phone';
 import { clearProfilePhoto } from '../lib/users';
+import { sanitizeUsernameInput } from '../lib/username';
 import { formatInviter } from '../lib/vcard';
 import './ProfilePage.css';
 
@@ -53,7 +55,14 @@ function initialsFromName(name: string): string {
 }
 
 export default function ProfilePage() {
-  const { profile, saveProfile, refreshProfile } = useAuth();
+  const { profile, firebaseUser, saveProfile, refreshProfile, deleteAccount } = useAuth();
+  const navigate = useNavigate();
+  const usesPasswordAuth = Boolean(
+    firebaseUser?.providerData.some((p) => p.providerId === 'password')
+  );
+  const usesGoogleAuth = Boolean(
+    firebaseUser?.providerData.some((p) => p.providerId === 'google.com')
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: profile?.name ?? '',
@@ -64,6 +73,7 @@ export default function ProfilePage() {
     occupation: profile?.occupation ?? '',
     currentEmployer: profile?.currentEmployer ?? '',
     currentCity: profile?.currentCity ?? '',
+    province: profile?.province ?? '',
     linkedin: profile?.socialMedia?.linkedin ?? '',
     x: profile?.socialMedia?.x ?? '',
     instagram: profile?.socialMedia?.instagram ?? '',
@@ -78,6 +88,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const hydratedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -92,6 +106,7 @@ export default function ProfilePage() {
       occupation: profile.occupation ?? '',
       currentEmployer: profile.currentEmployer ?? '',
       currentCity: profile.currentCity ?? '',
+      province: profile.province ?? '',
       linkedin: profile.socialMedia?.linkedin ?? '',
       x: profile.socialMedia?.x ?? '',
       instagram: profile.socialMedia?.instagram ?? '',
@@ -185,6 +200,7 @@ export default function ProfilePage() {
         occupation: form.occupation || undefined,
         currentEmployer: form.currentEmployer || undefined,
         currentCity: form.currentCity || undefined,
+        province: form.province || undefined,
         socialMedia: {
           linkedin: form.linkedin || undefined,
           x: form.x || undefined,
@@ -273,7 +289,7 @@ export default function ProfilePage() {
         <div className="profile-photo-actions">
           <button
             type="button"
-            className="secondary"
+            className="primary"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -315,7 +331,15 @@ export default function ProfilePage() {
           <FieldRow label="Username" alwaysPublic>
             <input
               value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, username: sanitizeUsernameInput(e.target.value) }))
+              }
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="text"
+              pattern="[a-z0-9_]+"
+              title="Lowercase letters, numbers, and underscores only"
               required
             />
           </FieldRow>
@@ -397,17 +421,37 @@ export default function ProfilePage() {
             />
           </FieldRow>
         </div>
-        <FieldRow
-          label="Current city"
-          visibility={privacy.currentCity}
-          onVisibilityChange={(value) => setFieldPrivacy('currentCity', value)}
-        >
-          <input
-            value={form.currentCity}
-            onChange={(e) => setForm((f) => ({ ...f, currentCity: e.target.value }))}
-            placeholder="Optional"
-          />
-        </FieldRow>
+        <div className="grid-2">
+          <FieldRow
+            label="Current city"
+            visibility={privacy.currentCity}
+            onVisibilityChange={(value) => setFieldPrivacy('currentCity', value)}
+          >
+            <input
+              value={form.currentCity}
+              onChange={(e) => setForm((f) => ({ ...f, currentCity: e.target.value }))}
+              placeholder="Optional"
+            />
+          </FieldRow>
+          <label>
+            Province
+            <select
+              value={form.province}
+              onChange={(e) => setForm((f) => ({ ...f, province: e.target.value }))}
+            >
+              <option value="">Select province (optional)</option>
+              {KAPPA_PROVINCES.map((province) => (
+                <option key={province} value={province}>
+                  {province}
+                </option>
+              ))}
+              {form.province &&
+                !(KAPPA_PROVINCES as readonly string[]).includes(form.province) && (
+                  <option value={form.province}>{form.province} (current)</option>
+                )}
+            </select>
+          </label>
+        </div>
       </section>
 
       <section className="panel profile-section">
@@ -461,6 +505,69 @@ export default function ProfilePage() {
             />
           </FieldRow>
         </div>
+      </section>
+
+      <section className="panel profile-section profile-danger">
+        <div className="profile-section-header">
+          <h2>Delete account</h2>
+          <p>
+            Permanently removes your profile, public card, invites you created, and photo. Brothers
+            you invited keep their accounts.
+            {usesGoogleAuth && !usesPasswordAuth
+              ? ' You will confirm with Google before deletion.'
+              : ' Enter your password to confirm.'}
+          </p>
+        </div>
+        <label style={{ display: 'block' }}>
+          Type <strong style={{ display: 'inline-block' }}>{profile.username}</strong> to confirm
+          <input
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            autoComplete="off"
+            placeholder={profile.username}
+            style={{ display: 'block', marginTop: '0.7rem' }}
+          />
+        </label>
+        {usesPasswordAuth && (
+          <label style={{ display: 'block', marginTop: '0.9rem' }}>
+            Password
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              autoComplete="current-password"
+              placeholder="Your account password"
+              style={{ display: 'block', marginTop: '0.7rem' }}
+            />
+          </label>
+        )}
+        {deleteError && <p className="error">{deleteError}</p>}
+        <button
+          type="button"
+          className="profile-delete-button"
+          disabled={
+            deleting ||
+            deleteConfirm.trim().toLowerCase() !== profile.username.trim().toLowerCase() ||
+            (usesPasswordAuth && !deletePassword.trim())
+          }
+          onClick={() => {
+            void (async () => {
+              setDeleteError(null);
+              setDeleting(true);
+              try {
+                await deleteAccount(usesPasswordAuth ? deletePassword : undefined);
+                navigate('/', { replace: true });
+              } catch (err) {
+                setDeleteError(
+                  err instanceof Error ? err.message : 'Could not delete account. Try again.'
+                );
+                setDeleting(false);
+              }
+            })();
+          }}
+        >
+          {deleting ? 'Deleting…' : 'Delete my account'}
+        </button>
       </section>
 
       <div className="profile-save-bar">

@@ -125,25 +125,45 @@ button,
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 1px solid rgba(255,255,255,0.5);
+  border: 1px solid var(--crimson);
   border-radius: 999px;
   padding: 0.75rem 1.15rem;
-  background: var(--crimson);
-  color: white;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
+  background: var(--crimson-deep);
+  color: white;
+}
+.admin-analytics .row {
+  gap: 0;
+}
+.admin-analytics button {
+  border-radius: 0;
+  margin-left: -1px;
+  padding: 8px;
+  min-width: inherit !important;
+}
+.admin-analytics button:first-child {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
 }
 
-.main button, .main .button {
-  min-width: 200px;
+.admin-analytics button:last-child {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 button.secondary,
 .button.secondary {
-  background: transparent;
   color: var(--crimson);
-  border: 1.5px solid var(--crimson);
+  background: white;
+}
+
+button.primary,
+.button.primary,
+button.secondary,
+.button.secondary {
+  min-width: 200px;
 }
 
 button:disabled {

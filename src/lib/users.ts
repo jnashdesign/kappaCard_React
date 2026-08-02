@@ -1,10 +1,13 @@
 import {
+  addDoc,
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
   getDocs,
   increment,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -12,11 +15,26 @@ import {
   serverTimestamp,
   type DocumentData,
 } from 'firebase/firestore';
-import { db } from './firebase';
-import type { FieldPrivacy, InviteRecord, MembershipTier, UserProfile } from '../types';
+import {
+  EmailAuthProvider,
+  deleteUser,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  type User,
+} from 'firebase/auth';
+import { deleteObject, listAll, ref } from 'firebase/storage';
+import { auth, db, googleProvider, storage } from './firebase';
+import type {
+  AccountDeletion,
+  FieldPrivacy,
+  InviteRecord,
+  MembershipTier,
+  UserProfile,
+} from '../types';
 import { normalizeFieldPrivacy } from './privacy';
 import { sanitizePhotoUrl } from './photos';
 import { createInviteCode, normalizeUsername, validateUsername } from './username';
+import { EMPTY_USER_STATS, bumpOwnStat, isProfileComplete, mapUserStats } from './userStats';
 
 function requireDb() {
   if (!db) throw new Error('Firebase is not configured. Add your VITE_FIREBASE_* env vars.');
@@ -58,6 +76,7 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
     occupation: data.occupation,
     currentEmployer: data.currentEmployer,
     currentCity: data.currentCity,
+    province: typeof data.province === 'string' ? data.province : undefined,
     profilePicture: sanitizePhotoUrl(data.profilePicture),
     profilePicturePath: typeof data.profilePicturePath === 'string' ? data.profilePicturePath : undefined,
     socialMedia: data.socialMedia ?? {},
@@ -70,6 +89,20 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
     inviteCode: data.inviteCode ?? '',
     tier: (data.tier as MembershipTier) ?? 'free',
     admin: Boolean(data.admin),
+    stats: mapUserStats(data),
+    profileCompletedAt:
+      typeof data.profileCompletedAt === 'string' ? data.profileCompletedAt : undefined,
+    activatedAt: typeof data.activatedAt === 'string' ? data.activatedAt : undefined,
+    firstCardImageDownloadedAt:
+      typeof data.firstCardImageDownloadedAt === 'string'
+        ? data.firstCardImageDownloadedAt
+        : undefined,
+    firstCardViewedAt:
+      typeof data.firstCardViewedAt === 'string' ? data.firstCardViewedAt : undefined,
+    firstContactDownloadedAt:
+      typeof data.firstContactDownloadedAt === 'string'
+        ? data.firstContactDownloadedAt
+        : undefined,
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() ?? data.updatedAt ?? new Date().toISOString(),
   };
@@ -107,25 +140,32 @@ export async function isUsernameAvailable(username: string, excludeUserId?: stri
   const normalized = normalizeUsername(username);
   if (validateUsername(normalized)) return false;
 
-  const aliasSnap = await getDoc(doc(database, 'usernames', normalized));
+  const aliasRef = doc(database, 'usernames', normalized);
+  const usersQuery = query(collection(database, 'users'), where('username', '==', normalized));
+  const [aliasSnap, usersSnap] = await Promise.all([getDoc(aliasRef), getDocs(usersQuery)]);
+
   if (aliasSnap.exists()) {
     return aliasSnap.data().userId === excludeUserId;
   }
-
-  const usersQuery = query(collection(database, 'users'), where('username', '==', normalized));
-  const usersSnap = await getDocs(usersQuery);
   if (usersSnap.empty) return true;
   return usersSnap.docs.every((d) => d.id === excludeUserId);
 }
 
-export async function claimUsername(userId: string, username: string, previousUsername?: string): Promise<void> {
+export async function claimUsername(
+  userId: string,
+  username: string,
+  previousUsername?: string,
+  options?: { skipAvailabilityCheck?: boolean }
+): Promise<void> {
   const database = requireDb();
   const normalized = normalizeUsername(username);
   const error = validateUsername(normalized);
   if (error) throw new Error(error);
 
-  const available = await isUsernameAvailable(normalized, userId);
-  if (!available) throw new Error('That username is already taken.');
+  if (!options?.skipAvailabilityCheck) {
+    const available = await isUsernameAvailable(normalized, userId);
+    if (!available) throw new Error('That username is already taken.');
+  }
 
   await setDoc(doc(database, 'usernames', normalized), {
     username: normalized,
@@ -185,6 +225,7 @@ export async function createUserProfile(
   let invitedByInitiationYear: number | undefined;
   let inviteDocId: string | undefined;
   let inviteGrantsBasic = false;
+  let inviteMultiUse = false;
 
   if (input.admin) {
     // Seed admin has no inviter
@@ -220,6 +261,7 @@ export async function createUserProfile(
     invitedByInitiationYear = invite.inviterInitiationYear;
     inviteDocId = inviteDoc.id;
     inviteGrantsBasic = Boolean(invite.grantsBasic);
+    inviteMultiUse = Boolean(invite.multiUse);
 
     // Backfill chapter/year from inviter profile when older invites lack them
     if (invitedBy && (!invitedByChapter || !invitedByInitiationYear)) {
@@ -260,38 +302,36 @@ export async function createUserProfile(
     inviteCode: personalInviteCode,
     tier,
     admin: Boolean(input.admin),
+    stats: EMPTY_USER_STATS,
     socialMedia: {},
     createdAt: now,
     updatedAt: now,
   };
 
-  await setDoc(doc(database, 'users', userId), {
-    ...profile,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  await claimUsername(userId, username);
-
-  // Personal invite code document for this new user (unused until they invite someone)
-  await setDoc(doc(database, 'invites', `${userId}_${personalInviteCode}`), {
-    code: personalInviteCode,
-    inviterId: userId,
-    inviterName: profile.name,
-    inviterUsername: username,
-    inviterChapter: profile.chapter,
-    inviterInitiationYear: profile.initiationYear,
-    active: true,
-    createdAt: now,
-    grantsBasic: false,
-  });
+  // Parallel writes: user doc, username claim, personal invite (skip re-checking username)
+  await Promise.all([
+    setDoc(doc(database, 'users', userId), {
+      ...profile,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+    claimUsername(userId, username, undefined, { skipAvailabilityCheck: true }),
+    setDoc(doc(database, 'invites', `${userId}_${personalInviteCode}`), {
+      code: personalInviteCode,
+      inviterId: userId,
+      inviterName: profile.name,
+      inviterUsername: username,
+      inviterChapter: profile.chapter,
+      inviterInitiationYear: profile.initiationYear,
+      active: true,
+      createdAt: now,
+      grantsBasic: false,
+    }),
+  ]);
 
   if (inviteDocId) {
     const inviteRef = doc(database, 'invites', inviteDocId);
-    const inviteSnap = await getDoc(inviteRef);
-    const inviteData = inviteSnap.data() as InviteRecord | undefined;
-
-    if (inviteData?.multiUse) {
+    if (inviteMultiUse) {
       await updateDoc(inviteRef, {
         useCount: increment(1),
         lastUsedAt: now,
@@ -315,7 +355,7 @@ export async function updateUserProfile(
 ): Promise<void> {
   const database = requireDb();
 
-  // Never let the client escalate privileges through profile save
+  // Never let the client escalate privileges or spoof analytics through profile save
   const {
     id: _id,
     admin: _admin,
@@ -325,14 +365,69 @@ export async function updateUserProfile(
     invitedByName: _invitedByName,
     invitedByChapter: _invitedByChapter,
     invitedByInitiationYear: _invitedByInitiationYear,
+    stats: _stats,
+    profileCompletedAt: _profileCompletedAt,
+    activatedAt: _activatedAt,
+    firstCardImageDownloadedAt: _firstCardImageDownloadedAt,
+    firstCardViewedAt: _firstCardViewedAt,
+    firstContactDownloadedAt: _firstContactDownloadedAt,
     ...safeUpdates
   } = updates;
 
-const payload: Record<string, unknown> = stripUndefined({
-    ...safeUpdates,
+  const payload: Record<string, unknown> = {
     updatedAt: serverTimestamp(),
-  });
-  delete payload.id;
+  };
+
+  // Optional scalars: empty/undefined must deleteField — merge:true keeps old values otherwise
+  const clearableScalars = [
+    'phone',
+    'occupation',
+    'currentEmployer',
+    'currentCity',
+    'province',
+  ] as const;
+
+  for (const key of clearableScalars) {
+    if (key in safeUpdates) {
+      const value = safeUpdates[key];
+      const trimmed = typeof value === 'string' ? value.trim() : value;
+      payload[key] = trimmed ? trimmed : deleteField();
+    }
+  }
+
+  // Nested social map is deep-merged by Firestore; clear missing handles explicitly
+  if ('socialMedia' in safeUpdates) {
+    const sm = safeUpdates.socialMedia ?? {};
+    payload.socialMedia = {
+      linkedin: sm.linkedin?.trim() ? sm.linkedin.trim() : deleteField(),
+      x: sm.x?.trim() ? sm.x.trim() : deleteField(),
+      instagram: sm.instagram?.trim() ? sm.instagram.trim() : deleteField(),
+      snapchat: sm.snapchat?.trim() ? sm.snapchat.trim() : deleteField(),
+    };
+  }
+
+  if (safeUpdates.name !== undefined) payload.name = safeUpdates.name;
+  if (safeUpdates.chapter !== undefined) payload.chapter = safeUpdates.chapter;
+  if (safeUpdates.chapterOfInitiation !== undefined) {
+    payload.chapterOfInitiation = safeUpdates.chapterOfInitiation;
+  }
+  if (safeUpdates.currentChapter !== undefined) {
+    payload.currentChapter = safeUpdates.currentChapter;
+  }
+  if (safeUpdates.initiationYear !== undefined) {
+    payload.initiationYear = safeUpdates.initiationYear;
+  }
+  if (safeUpdates.fieldPrivacy !== undefined) {
+    payload.fieldPrivacy = stripUndefined(safeUpdates.fieldPrivacy);
+  }
+  if (safeUpdates.profilePicture !== undefined) {
+    payload.profilePicture = safeUpdates.profilePicture;
+  }
+  if (safeUpdates.profilePicturePath !== undefined) {
+    payload.profilePicturePath = safeUpdates.profilePicturePath;
+  }
+  if (safeUpdates.email !== undefined) payload.email = safeUpdates.email;
+  if (safeUpdates.inviteCode !== undefined) payload.inviteCode = safeUpdates.inviteCode;
 
   if (safeUpdates.username) {
     const normalized = normalizeUsername(safeUpdates.username);
@@ -341,7 +436,23 @@ const payload: Record<string, unknown> = stripUndefined({
   }
 
   // merge so first-time field fills work even on legacy/partial docs
-  await setDoc(doc(database, 'users', userId), payload, { merge: true });
+  await setDoc(doc(database, 'users', userId), stripUndefined(payload), { merge: true });
+
+  // Reload-light milestone: stamp profileCompletedAt when definition first met
+  const afterSnap = await getDoc(doc(database, 'users', userId));
+  if (afterSnap.exists()) {
+    const after = mapUser(afterSnap.id, afterSnap.data());
+    const milestone: Record<string, unknown> = {
+      'stats.profileUpdates': increment(1),
+    };
+    if (!after.profileCompletedAt && isProfileComplete(after)) {
+      milestone.profileCompletedAt = new Date().toISOString();
+      if (after.firstCardImageDownloadedAt && !after.activatedAt) {
+        milestone.activatedAt = new Date().toISOString();
+      }
+    }
+    await setDoc(doc(database, 'users', userId), milestone, { merge: true });
+  }
 }
 
 export async function clearProfilePhoto(userId: string): Promise<void> {
@@ -381,6 +492,39 @@ export async function listUsers(): Promise<UserProfile[]> {
   return snap.docs.map((d) => mapUser(d.id, d.data()));
 }
 
+export async function listAllInvites(): Promise<InviteRecord[]> {
+  const database = requireDb();
+  const snap = await getDocs(collection(database, 'invites'));
+  return snap.docs.map((d) => mapInvite(d.id, d.data()));
+}
+
+export async function listAccountDeletions(): Promise<AccountDeletion[]> {
+  const database = requireDb();
+  const snap = await getDocs(
+    query(collection(database, 'accountDeletions'), orderBy('deletedAt', 'desc'))
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      userId: data.userId ?? '',
+      username: data.username ?? '',
+      email: data.email ?? '',
+      name: data.name ?? '',
+      chapter: data.chapter ?? '',
+      province: typeof data.province === 'string' ? data.province : undefined,
+      initiationYear:
+        typeof data.initiationYear === 'number' ? data.initiationYear : undefined,
+      tier: (data.tier as MembershipTier) ?? 'free',
+      wasActivated: Boolean(data.wasActivated),
+      deletedAt:
+        data.deletedAt ??
+        data.createdAt?.toDate?.()?.toISOString?.() ??
+        new Date().toISOString(),
+    };
+  });
+}
+
 export async function createInviteForUser(
   user: UserProfile,
   options?: { grantsBasic?: boolean }
@@ -416,6 +560,9 @@ export async function createInviteForUser(
     createdAt: record.createdAt,
     active: true,
     grantsBasic,
+  });
+  void bumpOwnStat(user.id, 'invitesCreated').catch(() => {
+    /* non-blocking analytics */
   });
   return record;
 }
@@ -493,6 +640,9 @@ export async function createAdminShareInvite(
     useCount: 0,
     grantsBasic,
   });
+  void bumpOwnStat(user.id, 'invitesCreated').catch(() => {
+    /* non-blocking analytics */
+  });
   return record;
 }
 
@@ -550,4 +700,134 @@ export function canUseCardFeatures(user: UserProfile | null | undefined): boolea
   if (!user) return false;
   if (user.admin) return true;
   return user.tier === 'basic' || user.tier === 'premium';
+}
+
+/**
+ * Reauthenticate before sensitive Auth operations (delete, etc.).
+ * Password accounts need `password`; Google accounts get a popup.
+ */
+async function reauthenticateForSensitiveAction(
+  authUser: User,
+  options?: { password?: string }
+): Promise<void> {
+  const providers = authUser.providerData.map((p) => p.providerId);
+
+  if (providers.includes('password')) {
+    if (!authUser.email) throw new Error('Your account has no email address.');
+    if (!options?.password?.trim()) {
+      throw new Error('Enter your password to confirm account deletion.');
+    }
+    const credential = EmailAuthProvider.credential(authUser.email, options.password);
+    await reauthenticateWithCredential(authUser, credential);
+    return;
+  }
+
+  if (providers.includes('google.com')) {
+    await reauthenticateWithPopup(authUser, googleProvider);
+    return;
+  }
+
+  throw new Error('Re-sign in with your original provider, then try deleting again.');
+}
+
+/**
+ * Permanently delete the signed-in member's Auth account and related data.
+ * Reauthenticates first so Auth deletion cannot fail after Firestore is wiped.
+ */
+export async function deleteMyAccount(
+  user: UserProfile,
+  options?: { password?: string }
+): Promise<void> {
+  if (!auth?.currentUser) throw new Error('You must be signed in to delete your account.');
+  if (auth.currentUser.uid !== user.id) {
+    throw new Error('You can only delete your own account.');
+  }
+
+  const database = requireDb();
+  const uid = user.id;
+  const authUser = auth.currentUser;
+  const deletedAt = new Date().toISOString();
+
+  // Must succeed before any destructive deletes — otherwise Auth orphans keep the email "taken"
+  try {
+    await reauthenticateForSensitiveAction(authUser, options);
+  } catch (err) {
+    const code =
+      err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
+    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      throw new Error('Incorrect password. Try again.');
+    }
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      throw new Error('Google confirmation was cancelled. Try again to delete your account.');
+    }
+    throw err instanceof Error ? err : new Error('Could not verify your identity.');
+  }
+
+  // Log deletion for admin analytics before wiping identity (survives account removal)
+  await addDoc(collection(database, 'accountDeletions'), {
+    userId: uid,
+    username: user.username,
+    email: user.email,
+    name: user.name,
+    chapter: user.chapter,
+    province: user.province || null,
+    initiationYear: user.initiationYear || null,
+    tier: user.tier,
+    wasActivated: Boolean(user.activatedAt),
+    deletedAt,
+    createdAt: serverTimestamp(),
+  });
+
+  // Username aliases (current + historical) — parallel with invite cleanup prep
+  const [aliasSnap, invites] = await Promise.all([
+    getDocs(query(collection(database, 'usernames'), where('userId', '==', uid))),
+    getInvitesForUser(uid),
+  ]);
+
+  const aliasDeletes = aliasSnap.docs.map((d) => deleteDoc(d.ref));
+  if (user.username) {
+    const currentAlias = doc(database, 'usernames', normalizeUsername(user.username));
+    aliasDeletes.push(
+      getDoc(currentAlias).then((snap) => (snap.exists() ? deleteDoc(currentAlias) : undefined))
+    );
+  }
+
+  await Promise.all([
+    ...aliasDeletes,
+    ...invites.map((invite) => deleteDoc(doc(database, 'invites', invite.id))),
+  ]);
+
+  // Profile photos in Storage
+  if (storage) {
+    try {
+      if (user.profilePicturePath) {
+        await deleteObject(ref(storage, user.profilePicturePath));
+      }
+    } catch {
+      /* missing object is fine */
+    }
+    try {
+      const folder = ref(storage, `profile-pictures/${uid}`);
+      const listed = await listAll(folder);
+      await Promise.all(listed.items.map((item) => deleteObject(item)));
+    } catch {
+      /* folder may be empty */
+    }
+  }
+
+  // Profile document (must stay authenticated until Auth delete)
+  await deleteDoc(doc(database, 'users', uid));
+
+  try {
+    await deleteUser(authUser);
+  } catch (err) {
+    const code =
+      err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
+    if (code === 'auth/requires-recent-login') {
+      throw new Error(
+        'Your profile data was removed, but authentication could not be deleted. In Firebase Console → Authentication, delete this email manually, then contact support if needed.'
+      );
+    }
+    throw err instanceof Error ? err : new Error('Could not delete authentication account.');
+  }
 }

@@ -7,11 +7,11 @@ export default function LandingPage() {
   const { profile, configured } = useAuth();
 
   const primaryCta = profile ? (
-    <Link className="button" to="/my-card">
+    <Link style={{color: 'white', backgroundColor: 'var(--crimson)'}} className="button primary" to="/my-card">
       Go to My Card
     </Link>
   ) : (
-    <Link className="button" to="/request-invite">
+    <Link className="button primary" to="/request-invite">
       Get started
     </Link>
   );
