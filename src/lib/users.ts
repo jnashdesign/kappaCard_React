@@ -184,6 +184,7 @@ export async function createUserProfile(
   let invitedByChapter: string | undefined;
   let invitedByInitiationYear: number | undefined;
   let inviteDocId: string | undefined;
+  let inviteGrantsBasic = false;
 
   if (input.admin) {
     // Seed admin has no inviter
@@ -218,6 +219,7 @@ export async function createUserProfile(
     invitedByChapter = invite.inviterChapter;
     invitedByInitiationYear = invite.inviterInitiationYear;
     inviteDocId = inviteDoc.id;
+    inviteGrantsBasic = Boolean(invite.grantsBasic);
 
     // Backfill chapter/year from inviter profile when older invites lack them
     if (invitedBy && (!invitedByChapter || !invitedByInitiationYear)) {
@@ -234,6 +236,15 @@ export async function createUserProfile(
   const personalInviteCode = createInviteCode();
   const now = new Date().toISOString();
 
+  // Invite path: tier comes from the invite (complimentary Basic vs paywalled free).
+  // Seed/admin paths may pass an explicit tier.
+  let tier: MembershipTier = 'free';
+  if (input.admin || input.seededBy) {
+    tier = input.tier ?? (input.admin ? 'premium' : 'free');
+  } else if (inviteGrantsBasic) {
+    tier = 'basic';
+  }
+
   const profile: Omit<UserProfile, 'id'> = {
     email: input.email,
     name: input.name.trim(),
@@ -247,7 +258,7 @@ export async function createUserProfile(
     invitedByChapter,
     invitedByInitiationYear,
     inviteCode: personalInviteCode,
-    tier: input.tier ?? 'free',
+    tier,
     admin: Boolean(input.admin),
     socialMedia: {},
     createdAt: now,
@@ -272,6 +283,7 @@ export async function createUserProfile(
     inviterInitiationYear: profile.initiationYear,
     active: true,
     createdAt: now,
+    grantsBasic: false,
   });
 
   if (inviteDocId) {
@@ -369,7 +381,15 @@ export async function listUsers(): Promise<UserProfile[]> {
   return snap.docs.map((d) => mapUser(d.id, d.data()));
 }
 
-export async function createInviteForUser(user: UserProfile): Promise<InviteRecord> {
+export async function createInviteForUser(
+  user: UserProfile,
+  options?: { grantsBasic?: boolean }
+): Promise<InviteRecord> {
+  const grantsBasic = Boolean(options?.grantsBasic);
+  if (grantsBasic && !user.admin) {
+    throw new Error('Only admins can create complimentary Basic invites.');
+  }
+
   const database = requireDb();
   const code = createInviteCode();
   const id = `${user.id}_${code}`;
@@ -384,6 +404,7 @@ export async function createInviteForUser(user: UserProfile): Promise<InviteReco
     inviterInitiationYear: user.initiationYear,
     createdAt,
     active: true,
+    grantsBasic,
   };
   await setDoc(doc(database, 'invites', id), {
     code: record.code,
@@ -394,6 +415,7 @@ export async function createInviteForUser(user: UserProfile): Promise<InviteReco
     inviterInitiationYear: record.inviterInitiationYear,
     createdAt: record.createdAt,
     active: true,
+    grantsBasic,
   });
   return record;
 }
@@ -414,6 +436,7 @@ function mapInvite(id: string, data: DocumentData): InviteRecord {
     multiUse: Boolean(data.multiUse),
     useCount: typeof data.useCount === 'number' ? data.useCount : 0,
     lastUsedAt: data.lastUsedAt,
+    grantsBasic: Boolean(data.grantsBasic),
   };
 }
 
@@ -424,12 +447,21 @@ export async function getAdminShareInvite(userId: string): Promise<InviteRecord 
   return mapInvite(snap.id, snap.data());
 }
 
-/** One reusable chapter share code per admin (create once, toggle active anytime). */
-export async function createAdminShareInvite(user: UserProfile): Promise<InviteRecord> {
+/** One reusable chapter share code per admin (create once, toggle active / complimentary anytime). */
+export async function createAdminShareInvite(
+  user: UserProfile,
+  options?: { grantsBasic?: boolean }
+): Promise<InviteRecord> {
   if (!user.admin) throw new Error('Only admins can create a chapter share code.');
   const existing = await getAdminShareInvite(user.id);
-  if (existing) return existing;
+  if (existing) {
+    if (options?.grantsBasic !== undefined && options.grantsBasic !== existing.grantsBasic) {
+      return setAdminShareInviteGrantsBasic(user, options.grantsBasic);
+    }
+    return existing;
+  }
 
+  const grantsBasic = Boolean(options?.grantsBasic);
   const database = requireDb();
   const code = createInviteCode();
   const id = `${user.id}_SHARE`;
@@ -446,6 +478,7 @@ export async function createAdminShareInvite(user: UserProfile): Promise<InviteR
     active: true,
     multiUse: true,
     useCount: 0,
+    grantsBasic,
   };
   await setDoc(doc(database, 'invites', id), {
     code: record.code,
@@ -458,8 +491,23 @@ export async function createAdminShareInvite(user: UserProfile): Promise<InviteR
     active: true,
     multiUse: true,
     useCount: 0,
+    grantsBasic,
   });
   return record;
+}
+
+/** Toggle whether the admin chapter share code unlocks Basic for free. */
+export async function setAdminShareInviteGrantsBasic(
+  user: UserProfile,
+  grantsBasic: boolean
+): Promise<InviteRecord> {
+  if (!user.admin) throw new Error('Only admins can update complimentary invite settings.');
+  const existing = await getAdminShareInvite(user.id);
+  if (!existing) throw new Error('Create a chapter share code first.');
+
+  const database = requireDb();
+  await updateDoc(doc(database, 'invites', existing.id), { grantsBasic: Boolean(grantsBasic) });
+  return { ...existing, grantsBasic: Boolean(grantsBasic) };
 }
 
 export async function getInvitesForUser(userId: string): Promise<InviteRecord[]> {

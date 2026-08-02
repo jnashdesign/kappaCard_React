@@ -8,6 +8,7 @@ import {
   deactivateInvite,
   getAdminShareInvite,
   getInvitesForUser,
+  setAdminShareInviteGrantsBasic,
   setInviteActive,
 } from '../lib/users';
 import type { InviteRecord } from '../types';
@@ -25,6 +26,7 @@ export default function InvitesPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compLoading, setCompLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -51,26 +53,32 @@ export default function InvitesPage() {
       <div className="panel stack">
         <h1>Invites</h1>
         <p className="muted">Basic tier is required to invite new members.</p>
-        <Link className="button" to="/upgrade">
+        <Link className="button" to="/pricing">
           Unlock Basic
         </Link>
       </div>
     );
   }
 
-  async function createInvite() {
+  async function createInvite(grantsBasic = false) {
     if (!profile) return;
-    setLoading(true);
+    if (grantsBasic) setCompLoading(true);
+    else setLoading(true);
     setError(null);
     setMessage(null);
     try {
-      const invite = await createInviteForUser(profile);
+      const invite = await createInviteForUser(profile, { grantsBasic });
       await refresh();
-      setMessage(`Created invite code ${invite.code}`);
+      setMessage(
+        grantsBasic
+          ? `Created complimentary Basic invite ${invite.code}`
+          : `Created invite code ${invite.code} (paywalled)`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create invite.');
     } finally {
       setLoading(false);
+      setCompLoading(false);
     }
   }
 
@@ -80,7 +88,7 @@ export default function InvitesPage() {
     setError(null);
     setMessage(null);
     try {
-      const invite = await createAdminShareInvite(profile);
+      const invite = await createAdminShareInvite(profile, { grantsBasic: false });
       await refresh();
       setMessage(`Chapter share code ready: ${invite.code}`);
     } catch (err) {
@@ -128,6 +136,26 @@ export default function InvitesPage() {
     }
   }
 
+  async function onToggleShareGrantsBasic(grantsBasic: boolean) {
+    if (!profile || !shareInvite) return;
+    setTogglingId(`${shareInvite.id}-grants`);
+    setError(null);
+    setMessage(null);
+    try {
+      await setAdminShareInviteGrantsBasic(profile, grantsBasic);
+      await refresh();
+      setMessage(
+        grantsBasic
+          ? 'Chapter share code now unlocks Basic for free.'
+          : 'Chapter share code is paywalled (signup still works; card unlock requires purchase).'
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update share code.');
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
   return (
     <section className="stack">
       <div>
@@ -144,7 +172,8 @@ export default function InvitesPage() {
           <h2 style={{ margin: 0 }}>Chapter share code</h2>
           <p className="muted" style={{ margin: 0 }}>
             One reusable code for your chapter. Anyone can sign up with it while Active. Turn it off
-            anytime to stop new signups.
+            anytime to stop new signups. Toggle complimentary Basic when you are gifting access for
+            adoption — leave it off when brothers should pay $9.99 after signup.
           </p>
 
           {!shareInvite ? (
@@ -157,7 +186,12 @@ export default function InvitesPage() {
                 <strong style={{ fontSize: '1.25rem', letterSpacing: '0.06em' }}>
                   {shareInvite.code}
                 </strong>
-                <span className="badge">{shareInvite.active ? 'Active' : 'Disabled'}</span>
+                <div className="row" style={{ gap: '0.4rem' }}>
+                  <span className="badge">{shareInvite.active ? 'Active' : 'Disabled'}</span>
+                  <span className="badge">
+                    {shareInvite.grantsBasic ? 'Complimentary Basic' : 'Paywalled'}
+                  </span>
+                </div>
               </div>
               <span className="muted">
                 Used {shareInvite.useCount ?? 0} time{(shareInvite.useCount ?? 0) === 1 ? '' : 's'}
@@ -185,6 +219,18 @@ export default function InvitesPage() {
                       ? 'Disable'
                       : 'Enable'}
                 </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={togglingId === `${shareInvite.id}-grants`}
+                  onClick={() => void onToggleShareGrantsBasic(!shareInvite.grantsBasic)}
+                >
+                  {togglingId === `${shareInvite.id}-grants`
+                    ? 'Updating…'
+                    : shareInvite.grantsBasic
+                      ? 'Switch to paywalled'
+                      : 'Switch to complimentary Basic'}
+                </button>
               </div>
             </>
           )}
@@ -194,11 +240,31 @@ export default function InvitesPage() {
       <div className="panel stack">
         <h2 style={{ margin: 0 }}>One-time invites</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Each code works once. Disable unused codes if you no longer want them shared.
+          <strong>Regular</strong> invites let brothers create an account, then unlock Basic with
+          Stripe ($9.99).{' '}
+          {profile.admin ? (
+            <>
+              <strong>Complimentary</strong> invites (admin only) unlock Basic immediately on signup.
+            </>
+          ) : (
+            <>Only admins can issue complimentary Basic invites.</>
+          )}
         </p>
-        <button type="button" onClick={() => void createInvite()} disabled={loading}>
-          {loading ? 'Creating…' : 'Generate new invite'}
-        </button>
+        <div className="row">
+          <button type="button" onClick={() => void createInvite(false)} disabled={loading || compLoading}>
+            {loading ? 'Creating…' : 'Generate regular invite'}
+          </button>
+          {profile.admin && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void createInvite(true)}
+              disabled={loading || compLoading}
+            >
+              {compLoading ? 'Creating…' : 'Generate complimentary Basic'}
+            </button>
+          )}
+        </div>
         {message && <p className="success">{message}</p>}
         {error && <p className="error">{error}</p>}
       </div>
@@ -211,11 +277,16 @@ export default function InvitesPage() {
             <div key={invite.id} className="list-card">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <strong>{invite.code}</strong>
-                <span className="badge">
-                  {status === 'active' && 'Active'}
-                  {status === 'used' && 'Used'}
-                  {status === 'disabled' && 'Disabled'}
-                </span>
+                <div className="row" style={{ gap: '0.4rem' }}>
+                  <span className="badge">
+                    {status === 'active' && 'Active'}
+                    {status === 'used' && 'Used'}
+                    {status === 'disabled' && 'Disabled'}
+                  </span>
+                  <span className="badge">
+                    {invite.grantsBasic ? 'Complimentary Basic' : 'Paywalled'}
+                  </span>
+                </div>
               </div>
               <span className="muted">Created {new Date(invite.createdAt).toLocaleString()}</span>
               {status === 'used' && invite.usedAt && (

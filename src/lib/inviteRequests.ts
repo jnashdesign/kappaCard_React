@@ -88,13 +88,16 @@ export async function setInviteRequestStatus(
 /** Approve a request: create a one-time invite and return the signup link. */
 export async function approveInviteRequest(
   admin: UserProfile,
-  request: InviteRequest
-): Promise<{ code: string; signupUrl: string }> {
-  const invite = await createInviteForUser(admin);
+  request: InviteRequest,
+  options?: { grantsBasic?: boolean }
+): Promise<{ code: string; signupUrl: string; grantsBasic: boolean }> {
+  const grantsBasic = Boolean(options?.grantsBasic);
+  const invite = await createInviteForUser(admin, { grantsBasic });
   await setInviteRequestStatus(request.id, 'approved', invite.code);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return {
     code: invite.code,
     signupUrl: `${origin}/signup?invite=${invite.code}`,
+    grantsBasic,
   };
 }

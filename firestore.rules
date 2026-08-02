@@ -38,9 +38,38 @@ service cloud.firestore {
 
     match /invites/{inviteId} {
       allow read: if true;
+      // Only admins may create invites that grant complimentary Basic.
       allow create: if signedIn()
-        && request.resource.data.inviterId == request.auth.uid;
-      allow update: if signedIn();
+        && request.resource.data.inviterId == request.auth.uid
+        && (
+          !('grantsBasic' in request.resource.data)
+          || request.resource.data.grantsBasic == false
+          || isAdmin()
+        );
+      allow update: if signedIn() && (
+        isAdmin()
+        || (
+          // Owner: enable/disable (cannot change grantsBasic / identity fields)
+          resource.data.inviterId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['grantsBasic', 'inviterId', 'code', 'multiUse'])
+        )
+        || (
+          // Redeemer: mark used / increment share usage (cannot flip grantsBasic)
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny([
+              'grantsBasic',
+              'inviterId',
+              'inviterName',
+              'inviterUsername',
+              'inviterChapter',
+              'inviterInitiationYear',
+              'code',
+              'multiUse',
+              'createdAt'
+            ])
+        )
+      );
       allow delete: if isAdmin();
     }
 
@@ -64,6 +93,11 @@ service cloud.firestore {
         && request.resource.data.initiationYear <= 2100
         && request.resource.data.createdAt is string;
       allow read, update, delete: if isAdmin();
+    }
+
+    // Written only by Admin SDK (Stripe webhook). Clients cannot read/write.
+    match /payments/{paymentId} {
+      allow read, write: if false;
     }
   }
 }

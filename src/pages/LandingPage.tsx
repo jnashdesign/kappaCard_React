@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { canUseCardFeatures } from '../lib/users';
 import './LandingPage.css';
 
 export default function LandingPage() {
@@ -15,7 +16,13 @@ export default function LandingPage() {
     </Link>
   );
 
-  const secondaryCta = profile ? null : (
+  const secondaryCta = profile ? (
+    !canUseCardFeatures(profile) ? (
+      <Link className="button secondary" to="/pricing">
+        View pricing
+      </Link>
+    ) : null
+  ) : (
     <Link className="button secondary" to="/login">
       Sign in
     </Link>
@@ -25,10 +32,10 @@ export default function LandingPage() {
     <div className="landing">
       <section className="landing-hero" aria-label="Kappa Card introduction">
         <div className="landing-hero-copy">
-          <h1 className="landing-brand">Never Forget A Brother</h1>
-          <p className="landing-headline">Make every introduction a lasting&nbsp;connection.</p>
+          <h1 className="landing-brand">Never Forget A Brother Again</h1>
+          <p className="landing-headline">Make lasting connections in less than 30 seconds.</p>
           <p className="landing-lede">
-          Skip the awkward exchange of phone numbers and social media handles. Share a complete contact with a single scan.
+          Skip the awkward exchange of phone numbers and social media handles. Share a complete contact info with&nbsp;a&nbsp;single&nbsp;scan.
           </p>
           <div className="landing-actions">
             {primaryCta}

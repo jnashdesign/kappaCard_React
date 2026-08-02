@@ -67,6 +67,10 @@ export default function Layout() {
         <nav id={navId} className={`nav${menuOpen ? ' is-open' : ''}`}>
           {firebaseUser && profile ? (
             <>
+              <NavLink to="/" onClick={closeMenu}>
+                Home
+              </NavLink>
+
               <NavLink to="/my-card" onClick={closeMenu}>
                 My Card
               </NavLink>
@@ -85,7 +89,7 @@ export default function Layout() {
                 </NavLink>
               )}
               {!unlocked && (
-                <NavLink to="/upgrade" onClick={closeMenu}>
+                <NavLink to="/pricing" onClick={closeMenu}>
                   Upgrade
                 </NavLink>
               )}
@@ -100,6 +104,13 @@ export default function Layout() {
             </>
           ) : (
             <>
+              <NavLink to="/" onClick={closeMenu}>
+                Home
+              </NavLink>
+
+              <NavLink to="/pricing" onClick={closeMenu}>
+                Pricing
+              </NavLink>
               {location.pathname !== '/login' && (
                 <NavLink
                   style={{
@@ -168,7 +179,10 @@ export default function Layout() {
       </main>
 
       <footer className="footer">
-        <p>Kappa Card — share your contact card with a scan.</p>
+        <p>
+          Kappa Card — share your contact card with a scan.{' '}
+          <Link to="/pricing">Pricing</Link>
+        </p>
       </footer>
     </div>
   );

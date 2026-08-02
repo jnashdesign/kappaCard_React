@@ -79,6 +79,11 @@ export interface InviteRecord {
   multiUse?: boolean;
   useCount?: number;
   lastUsedAt?: string;
+  /**
+   * When true, redeeming this invite sets the new member to `tier: basic` (complimentary).
+   * Only admins may create these. Regular invites omit this / false → paywalled `free`.
+   */
+  grantsBasic?: boolean;
 }
 
 export type InviteRequestStatus = 'pending' | 'approved' | 'declined';

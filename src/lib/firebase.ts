@@ -1,6 +1,7 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions, type Functions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -20,11 +21,21 @@ export const isFirebaseConfigured = Boolean(
     firebaseConfig.appId
 );
 
-const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+const app: FirebaseApp | null = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;
 export const googleProvider = new GoogleAuthProvider();
+
+let functionsInstance: Functions | null = null;
+
+export function getFirebaseFunctions(): Functions | null {
+  if (!app) return null;
+  if (!functionsInstance) {
+    functionsInstance = getFunctions(app);
+  }
+  return functionsInstance;
+}
 
 export default app;

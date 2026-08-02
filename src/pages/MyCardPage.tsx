@@ -72,7 +72,7 @@ export default function MyCardPage() {
       <div className="panel stack">
         <h1>My Card</h1>
         <p className="muted">Basic tier is required to generate and save your Kappa Card.</p>
-        <Link className="button" to="/upgrade">
+        <Link className="button" to="/pricing">
           Unlock Basic
         </Link>
       </div>

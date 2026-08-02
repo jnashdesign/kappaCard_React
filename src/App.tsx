@@ -8,11 +8,13 @@ import InvitesPage from './pages/InvitesPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MyCardPage from './pages/MyCardPage';
+import PricingPage from './pages/PricingPage';
 import ProfilePage from './pages/ProfilePage';
 import PublicCardPage from './pages/PublicCardPage';
 import RequestInvitePage from './pages/RequestInvitePage';
 import SignupPage from './pages/SignupPage';
 import UpgradePage from './pages/UpgradePage';
+import UpgradeSuccessPage from './pages/UpgradeSuccessPage';
 
 function LegacyKardRedirect() {
   const { username } = useParams();
@@ -29,6 +31,7 @@ export default function App() {
             <Route path="login" element={<LoginPage />} />
             <Route path="signup" element={<SignupPage />} />
             <Route path="request-invite" element={<RequestInvitePage />} />
+            <Route path="pricing" element={<PricingPage />} />
             <Route path="card/:username" element={<PublicCardPage />} />
             {/* Keep old /kard links working */}
             <Route path="kard/:username" element={<LegacyKardRedirect />} />
@@ -76,6 +79,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <UpgradePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="upgrade/success"
+              element={
+                <ProtectedRoute>
+                  <UpgradeSuccessPage />
                 </ProtectedRoute>
               }
             />

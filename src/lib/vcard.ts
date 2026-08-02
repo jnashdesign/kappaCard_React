@@ -179,7 +179,7 @@ export function buildVCard(user: VCardUser, photoBase64?: string | null): string
   }
 
   const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://kappacards-07212025.web.app';
+    typeof window !== 'undefined' ? window.location.origin : 'https://mykappacard.com';
   lines.push(`URL:${origin}/card/${encodeURIComponent(user.username)}`);
   lines.push('END:VCARD');
 

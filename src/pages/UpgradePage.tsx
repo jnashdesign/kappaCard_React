@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
+import CheckoutButton from '../components/CheckoutButton';
 import { useAuth } from '../contexts/AuthContext';
+import { BASIC_PRICE_LABEL } from '../lib/stripe';
 import { canUseCardFeatures } from '../lib/users';
 
-/**
- * Stripe one-time checkout will plug in here.
- * Until then, admins assign free/basic/premium from the Admin page or seed scripts.
- */
 export default function UpgradePage() {
   const { profile } = useAuth();
 
@@ -30,24 +28,24 @@ export default function UpgradePage() {
       <div>
         <h1>Unlock Basic</h1>
         <p className="muted">
-          One-time purchase unlocks Kappa Card generation and invites. Premium is reserved for
-          future features.
+          One-time {BASIC_PRICE_LABEL} purchase unlocks Kappa Card generation and invites. See the
+          full feature list on the pricing page.
         </p>
       </div>
 
       <div className="panel stack">
-        <h2 style={{ margin: 0 }}>Basic — one-time</h2>
+        <h2 style={{ margin: 0 }}>Basic — {BASIC_PRICE_LABEL} one-time</h2>
         <ul className="muted" style={{ margin: 0, paddingLeft: '1.2rem', lineHeight: 1.7 }}>
           <li>Branded Kappa Card image + QR</li>
           <li>Live public page at /card/yourname</li>
           <li>Invite new members</li>
+          <li>Field-level privacy controls</li>
         </ul>
-        <button type="button" disabled title="Stripe checkout coming next">
-          Purchase with Stripe (coming soon)
-        </button>
+        <CheckoutButton label={`Purchase with Stripe — ${BASIC_PRICE_LABEL}`} />
         <p className="muted">
-          While seeding the network, an admin can set invited brothers to <strong>free</strong> or{' '}
-          <strong>basic</strong> from the Admin page.
+          Prefer details first?{' '}
+          <Link to="/pricing">View pricing</Link>. During early rollout, an admin can also grant
+          complimentary Basic from the Admin page.
         </p>
       </div>
     </section>

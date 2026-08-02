@@ -61,17 +61,19 @@ export default function AdminPage() {
     }
   }
 
-  async function onApprove(request: InviteRequest) {
+  async function onApprove(request: InviteRequest, grantsBasic = false) {
     if (!profile) return;
     setBusyId(request.id);
     setError(null);
     setMessage(null);
     try {
-      const { code, signupUrl } = await approveInviteRequest(profile, request);
+      const { code, signupUrl } = await approveInviteRequest(profile, request, { grantsBasic });
       await navigator.clipboard.writeText(signupUrl);
       await refresh();
       setMessage(
-        `Approved ${request.name}. Invite ${code} copied — email it to ${request.email}.`
+        grantsBasic
+          ? `Approved ${request.name} with complimentary Basic. Invite ${code} copied — email it to ${request.email}.`
+          : `Approved ${request.name} (paywalled). Invite ${code} copied — email it to ${request.email}.`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not approve request.');
@@ -110,7 +112,8 @@ export default function AdminPage() {
       <div className="panel stack">
         <h2 style={{ margin: 0 }}>Invite requests ({pendingRequests.length} pending)</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Verify name, chapter, and year against membership records before approving.
+          Verify name, chapter, and year against membership records before approving. Choose
+          paywalled (default — they pay $9.99 later) or complimentary Basic for adoption.
         </p>
         {pendingRequests.length === 0 && <p className="muted">No pending requests.</p>}
         {pendingRequests.map((request) => (
@@ -127,9 +130,17 @@ export default function AdminPage() {
               <button
                 type="button"
                 disabled={busyId === request.id}
-                onClick={() => void onApprove(request)}
+                onClick={() => void onApprove(request, false)}
               >
-                {busyId === request.id ? 'Working…' : 'Approve & copy invite'}
+                {busyId === request.id ? 'Working…' : 'Approve (paywalled)'}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busyId === request.id}
+                onClick={() => void onApprove(request, true)}
+              >
+                Approve + complimentary Basic
               </button>
               <button
                 type="button"

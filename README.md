@@ -14,6 +14,7 @@ Sibling of `kappacard` (legacy React Native / Expo app) at:
 - Tiers: `free` | `basic` | `premium`
 - Basic unlocks Card image generation, invites, and connection requests
 - Admins can grant/revoke admin and set tiers
+- Admins can issue **complimentary Basic** invites (or tag the chapter share code); regular invites stay paywalled for $9.99 unlock
 - No member directory, location, or push notifications
 
 ## Quick start
@@ -58,18 +59,73 @@ npm run seed:user
 
 - React 19 + TypeScript + Vite
 - React Router
-- Firebase Auth / Firestore
+- Firebase Auth / Firestore / Cloud Functions
+- Stripe Checkout (one-time Basic unlock at $9.99)
 - `qrcode` + `html-to-image` for Card generation
 - `vite-plugin-pwa` for installability
+
+## Pricing & Stripe
+
+Public pricing page: `/pricing` ($9.99 one-time Basic).
+
+Checkout flow:
+
+1. Signed-in free user clicks **Unlock Basic**
+2. Callable Cloud Function `createCheckoutSession` creates a Stripe Checkout Session
+3. User pays on Stripe Hosted Checkout
+4. Webhook `stripeWebhook` sets `users/{uid}.tier = basic` and records `payments/{sessionId}`
+5. App returns to `/upgrade/success` and refreshes the profile
+
+### Enable payments (one-time setup)
+
+1. Create a Stripe account and copy the **Secret key** (test mode first).
+2. From the project root:
+
+```bash
+cd functions && npm install && cd ..
+firebase functions:secrets:set STRIPE_SECRET_KEY --project kappacards-07212025
+# paste sk_test_... or sk_live_...
+```
+
+3. Deploy functions:
+
+```bash
+firebase deploy --only functions --project kappacards-07212025
+```
+
+4. In Stripe Dashboard → Developers → Webhooks → Add endpoint:
+   - URL: `https://us-central1-kappacards-07212025.cloudfunctions.net/stripeWebhook`
+   - Event: `checkout.session.completed`
+   - Copy the signing secret (`whsec_...`)
+
+```bash
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET --project kappacards-07212025
+firebase deploy --only functions:stripeWebhook --project kappacards-07212025
+```
+
+5. Redeploy Firestore rules (adds locked-down `payments` collection):
+
+```bash
+firebase deploy --only firestore:rules --project kappacards-07212025
+```
+
+Optional frontend publishable key (not required for redirect Checkout):
+
+```bash
+# .env.local
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+Until functions + secrets are live, checkout shows a friendly error and admins can still grant Basic manually.
 
 ## Deploy
 
 ```bash
 npm run build
-firebase deploy --only hosting --project kappacards-07212025
+firebase deploy --only hosting,functions,firestore:rules --project kappacards-07212025
 ```
 
-Live app: https://kappacards-07212025.web.app
+Live app: https://mykappacard.com
 
-Also available at: https://kappacards-07212025.firebaseapp.com
+Also available at: https://kappacards-07212025.web.app / https://kappacards-07212025.firebaseapp.com
 

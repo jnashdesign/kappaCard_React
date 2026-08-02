@@ -118,12 +118,13 @@ Updated: 2026-07-29 — switched `.env.local` to KappaCards config.
 
 ## Still to do / follow-ups
 
-- Wire Stripe Checkout for Basic one-time purchase + webhook to set `tier: basic`
+- Deploy Stripe secrets + Cloud Functions + webhook endpoint (test mode first) — code ready
 - Enable Google provider in Firebase console + authorized domains
 - Polish Card visual design / additional templates
 - Harden username alias redirect UX with HTTP-level redirects if moving to SSR/hosting later
 - Replace solid-color PWA icon placeholders with branded artwork
 - Optional: remove leftover `src/lib/connections.ts` / types when networking returns as a deliberate feature
+- Optional: Stripe Customer Portal / receipts polish; premium tier products later
 
 ## Why these choices
 Keep the viral action (scan → contacts) fast and durable (static QR), while membership integrity stays invite-based and admin-auditable. Building as a sibling repo/app avoids mixing the new PWA with the Expo mobile codebase.
@@ -142,3 +143,15 @@ Keep the viral action (scan → contacts) fast and durable (static QR), while me
 
 - Audited `.gitignore` before first push: `.env`, `.env.*` (with `!.env.example`), `*.local`, `serviceAccount*.json`, `node_modules`, `dist`, and `.firebase/` are ignored so local Firebase credentials and deploy cache stay private.
 - Created GitHub remote and initial commit on `main`.
+
+## Session: Complimentary Basic invites (2026-08-01)
+
+- Invites support `grantsBasic` (admin-only). Regular invites stay paywalled (`tier: free` → Stripe). Complimentary invites set `tier: basic` on signup.
+- Invites page: **Generate regular invite** for everyone with Basic; admins also get **Generate complimentary Basic**. Chapter share code can toggle complimentary ↔ paywalled.
+- Admin invite-request approval: **Approve (paywalled)** vs **Approve + complimentary Basic**.
+- Firestore rules: only admins may create/update `grantsBasic: true`.
+
+## Session: Open Graph meta (2026-08-01)
+
+- Added Open Graph + Twitter Card tags in `index.html` (title, description, canonical, 1200×630 `og-image.png`).
+- Absolute URLs use primary custom domain `https://mykappacard.com` (also used as Stripe/vCard origin fallback).

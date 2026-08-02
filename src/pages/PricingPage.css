@@ -1,0 +1,230 @@
+.pricing {
+  display: grid;
+  gap: 2.25rem;
+  padding-bottom: 2rem;
+  animation: pricing-in 0.45s ease-out;
+}
+
+@keyframes pricing-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pricing-hero {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 40rem;
+}
+
+.pricing-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  line-height: 1.1;
+  color: var(--crimson-deep);
+}
+
+.pricing-hero p {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 34rem;
+}
+
+.pricing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.85fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.pricing-features {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid color-mix(in srgb, var(--crimson) 14%, transparent);
+  background: var(--panel);
+  border-radius: 16px;
+}
+
+.pricing-features h2 {
+  margin: 1em 1em 0;
+}
+
+.pricing-features li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.5rem 1.05rem 0;
+  border-radius: 16px;
+}
+
+.pricing-features li:first-child {
+  margin-top: 40px;
+}
+
+.pricing-features li:last-child {
+  margin-bottom: 40px;
+}
+
+.pricing-features .check {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--crimson) 12%, white);
+  color: var(--crimson);
+  font-weight: 800;
+  font-size: 0.85rem;
+  line-height: 1;
+  margin-top: 0.15rem;
+}
+
+.pricing-features h3 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  color: var(--crimson-deep);
+}
+
+.pricing-features p {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.pricing-card {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.5rem 1.35rem;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--crimson) 92%, black) 0%,
+      color-mix(in srgb, var(--crimson) 78%, #8a1a1c) 100%
+    );
+  color: #fff8f0;
+  position: sticky;
+  top: 5.5rem;
+}
+
+.pricing-card-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--gold) 82%, white);
+}
+
+.pricing-card h2 {
+  margin: 0;
+  font-size: 1.55rem;
+  color: #fff8f0;
+}
+
+.pricing-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.pricing-amount strong {
+  font-family: var(--font-display);
+  font-size: clamp(4.5rem, 6vw, 3.1rem);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.pricing-amount span {
+  color: color-mix(in srgb, #fff8f0 72%, transparent);
+  font-size: 1rem;
+}
+
+.pricing-card > p {
+  margin: 0;
+  line-height: 1.5;
+  color: color-mix(in srgb, #fff8f0 78%, transparent);
+}
+
+.pricing-card .button {
+  width: 100%;
+  min-width: 0;
+  background: #fff8f0;
+  color: var(--crimson-deep);
+  border-color: #fff8f0;
+}
+
+.pricing-card .button:hover {
+  background: white;
+}
+
+.pricing-card .button.secondary {
+  background: transparent;
+  color: #fff8f0;
+  border-color: color-mix(in srgb, var(--gold) 70%, white);
+}
+
+.pricing-card .muted,
+.pricing-card .error,
+.pricing-card .success {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.pricing-card .muted {
+  color: color-mix(in srgb, #fff8f0 68%, transparent);
+}
+
+.pricing-card .error {
+  color: #ffd0d0;
+}
+
+.pricing-card .success {
+  color: #c8f0d4;
+}
+
+.pricing-note {
+  max-width: 40rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+  background: color-mix(in srgb, var(--gold) 12%, white);
+}
+
+.pricing-note p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 820px) {
+  .pricing-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-card {
+    position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing {
+    animation: none;
+  }
+}
