@@ -48,6 +48,10 @@ a {
   color: var(--crimson);
 }
 
+p.muted {
+  max-width: 800px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid color-mix(in srgb, var(--crimson) 16%, transparent);

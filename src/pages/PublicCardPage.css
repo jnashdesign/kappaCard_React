@@ -25,6 +25,8 @@
   border-top-right-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--gold) 50%, transparent);
   background: linear-gradient(160deg, #4a090a 0%, #6d0e0f 45%, #8a1a1c 100%);
+  background-size: cover;
+  background-position: center;
   color: #f7f1e8;
   text-align: center;
 }
@@ -37,6 +39,10 @@
     radial-gradient(circle at 80% 0%, rgba(197, 164, 106, 0.32), transparent 45%),
     radial-gradient(circle at 15% 100%, rgba(255, 255, 255, 0.06), transparent 40%);
   pointer-events: none;
+}
+
+.public-card-hero--custom-bg::before {
+  background: transparent;
 }
 
 .public-card-hero-body {

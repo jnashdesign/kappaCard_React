@@ -79,6 +79,9 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
     province: typeof data.province === 'string' ? data.province : undefined,
     profilePicture: sanitizePhotoUrl(data.profilePicture),
     profilePicturePath: typeof data.profilePicturePath === 'string' ? data.profilePicturePath : undefined,
+    cardBackground: sanitizePhotoUrl(data.cardBackground),
+    cardBackgroundPath:
+      typeof data.cardBackgroundPath === 'string' ? data.cardBackgroundPath : undefined,
     socialMedia: data.socialMedia ?? {},
     fieldPrivacy: normalizeFieldPrivacy(data.fieldPrivacy as FieldPrivacy | undefined),
     invitedBy: data.invitedBy,
@@ -426,6 +429,12 @@ export async function updateUserProfile(
   if (safeUpdates.profilePicturePath !== undefined) {
     payload.profilePicturePath = safeUpdates.profilePicturePath;
   }
+  if (safeUpdates.cardBackground !== undefined) {
+    payload.cardBackground = safeUpdates.cardBackground;
+  }
+  if (safeUpdates.cardBackgroundPath !== undefined) {
+    payload.cardBackgroundPath = safeUpdates.cardBackgroundPath;
+  }
   if (safeUpdates.email !== undefined) payload.email = safeUpdates.email;
   if (safeUpdates.inviteCode !== undefined) payload.inviteCode = safeUpdates.inviteCode;
 
@@ -462,6 +471,19 @@ export async function clearProfilePhoto(userId: string): Promise<void> {
     {
       profilePicture: deleteField(),
       profilePicturePath: deleteField(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function clearCardBackground(userId: string): Promise<void> {
+  const database = requireDb();
+  await setDoc(
+    doc(database, 'users', userId),
+    {
+      cardBackground: deleteField(),
+      cardBackgroundPath: deleteField(),
       updatedAt: serverTimestamp(),
     },
     { merge: true }
@@ -802,6 +824,9 @@ export async function deleteMyAccount(
     try {
       if (user.profilePicturePath) {
         await deleteObject(ref(storage, user.profilePicturePath));
+      }
+      if (user.cardBackgroundPath) {
+        await deleteObject(ref(storage, user.cardBackgroundPath));
       }
     } catch {
       /* missing object is fine */

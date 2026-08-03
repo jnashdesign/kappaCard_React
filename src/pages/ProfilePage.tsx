@@ -9,9 +9,9 @@ import {
   type FieldVisibility,
   type PrivacyField,
 } from '../lib/privacy';
-import { uploadProfilePhoto } from '../lib/storage';
+import { uploadCardBackground, uploadProfilePhoto } from '../lib/storage';
 import { formatUsPhone } from '../lib/phone';
-import { clearProfilePhoto } from '../lib/users';
+import { clearCardBackground, clearProfilePhoto } from '../lib/users';
 import { sanitizeUsernameInput } from '../lib/username';
 import { formatInviter } from '../lib/vcard';
 import './ProfilePage.css';
@@ -64,6 +64,7 @@ export default function ProfilePage() {
     firebaseUser?.providerData.some((p) => p.providerId === 'google.com')
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: profile?.name ?? '',
     username: profile?.username ?? '',
@@ -81,12 +82,16 @@ export default function ProfilePage() {
   });
   const [privacy, setPrivacy] = useState(() => normalizeFieldPrivacy(profile?.fieldPrivacy));
   const initialPhoto = isUsablePhotoUrl(profile?.profilePicture) ? profile!.profilePicture! : '';
+  const initialBg = isUsablePhotoUrl(profile?.cardBackground) ? profile!.cardBackground! : '';
   const [previewUrl, setPreviewUrl] = useState(initialPhoto);
+  const [bgPreviewUrl, setBgPreviewUrl] = useState(initialBg);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [bgFailed, setBgFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingBg, setUploadingBg] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
@@ -116,6 +121,9 @@ export default function ProfilePage() {
     const photo = isUsablePhotoUrl(profile.profilePicture) ? profile.profilePicture! : '';
     setPreviewUrl(photo);
     setPhotoFailed(false);
+    const bg = isUsablePhotoUrl(profile.cardBackground) ? profile.cardBackground! : '';
+    setBgPreviewUrl(bg);
+    setBgFailed(false);
   }, [profile]);
 
   if (!profile) return <div className="panel">Loading…</div>;
@@ -123,6 +131,8 @@ export default function ProfilePage() {
   const inviterLabel = formatInviter(profile);
   const displayName = form.name.trim() || profile.name;
   const showPhoto = isUsablePhotoUrl(previewUrl) && !photoFailed;
+  const showBg = isUsablePhotoUrl(bgPreviewUrl) && !bgFailed;
+  const mediaBusy = uploading || uploadingBg;
   const publicPath = `/card/${form.username.trim() || profile.username}`;
   const publicUrl =
     typeof window !== 'undefined' ? `${window.location.origin}${publicPath}` : publicPath;
@@ -156,7 +166,7 @@ export default function ProfilePage() {
       setPreviewUrl(url);
       setPhotoFailed(false);
       await refreshProfile();
-      setMessage('Photo uploaded. It will appear on your Kappa Card when set to Public.');
+      setMessage('Circle photo uploaded. It appears on your Kappa Card when set to Public.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not upload photo.');
     } finally {
@@ -175,11 +185,53 @@ export default function ProfilePage() {
       setPreviewUrl('');
       setPhotoFailed(false);
       await refreshProfile();
-      setMessage('Photo removed.');
+      setMessage('Circle photo removed.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not remove photo.');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function onBackgroundSelected(file: File | null) {
+    if (!file) return;
+    setError(null);
+    setMessage(null);
+    setUploadingBg(true);
+    try {
+      const { url, path } = await uploadCardBackground(file);
+      await saveProfile({
+        cardBackground: url,
+        cardBackgroundPath: path,
+        fieldPrivacy: privacy,
+      });
+      setBgPreviewUrl(url);
+      setBgFailed(false);
+      await refreshProfile();
+      setMessage('Card background uploaded. It appears behind your Kappa Card when set to Public.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not upload background.');
+    } finally {
+      setUploadingBg(false);
+      if (bgFileInputRef.current) bgFileInputRef.current.value = '';
+    }
+  }
+
+  async function onRemoveBackground() {
+    if (!profile) return;
+    setError(null);
+    setMessage(null);
+    setUploadingBg(true);
+    try {
+      await clearCardBackground(profile.id);
+      setBgPreviewUrl('');
+      setBgFailed(false);
+      await refreshProfile();
+      setMessage('Card background removed. The default crimson look is back.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove background.');
+    } finally {
+      setUploadingBg(false);
     }
   }
 
@@ -228,9 +280,9 @@ export default function ProfilePage() {
           <button
             type="button"
             className="profile-photo-control"
-            disabled={uploading}
+            disabled={mediaBusy}
             onClick={() => fileInputRef.current?.click()}
-            aria-label="Change profile photo"
+            aria-label="Change circle photo"
           >
             <div className="profile-photo-ring">
               {showPhoto ? (
@@ -271,36 +323,101 @@ export default function ProfilePage() {
         accept="image/jpeg,image/png,image/webp"
         hidden
         onChange={(e) => void onPhotoSelected(e.target.files?.[0] ?? null)}
-        disabled={uploading}
+        disabled={mediaBusy}
+      />
+      <input
+        ref={bgFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        onChange={(e) => void onBackgroundSelected(e.target.files?.[0] ?? null)}
+        disabled={mediaBusy}
       />
 
       <section className="panel profile-section">
         <div className="profile-section-header">
           <div className="field-with-privacy-header">
-            <h2>Photo</h2>
+            <h2>Circle photo</h2>
             <PrivacyToggle
               value={privacy.profilePicture}
               onChange={(value) => setFieldPrivacy('profilePicture', value)}
-              disabled={uploading}
+              disabled={mediaBusy}
             />
           </div>
-          <p>Shown on your card when Public. JPG, PNG, or WebP up to 5MB.</p>
+          <p>
+            Face photo in the circle on your Kappa Card and in contacts. JPG, PNG, or WebP up to 5MB.
+          </p>
         </div>
         <div className="profile-photo-actions">
           <button
             type="button"
             className="primary"
-            disabled={uploading}
+            disabled={mediaBusy}
             onClick={() => fileInputRef.current?.click()}
           >
-            {uploading ? 'Uploading…' : showPhoto ? 'Replace photo' : 'Upload photo'}
+            {uploading ? 'Uploading…' : showPhoto ? 'Replace circle photo' : 'Upload circle photo'}
           </button>
           {showPhoto && (
             <button
               type="button"
               className="secondary"
-              disabled={uploading}
+              disabled={mediaBusy}
               onClick={() => void onRemovePhoto()}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="panel profile-section">
+        <div className="profile-section-header">
+          <div className="field-with-privacy-header">
+            <h2>Card background</h2>
+            <PrivacyToggle
+              value={privacy.cardBackground}
+              onChange={(value) => setFieldPrivacy('cardBackground', value)}
+              disabled={mediaBusy}
+            />
+          </div>
+          <p>
+            Full-bleed image behind your Kappa Card (and public card hero). Not added to contacts.
+            JPG, PNG, or WebP up to 5MB.
+          </p>
+        </div>
+        {showBg && (
+          <div
+            className="profile-bg-preview"
+            style={{ backgroundImage: `url(${bgPreviewUrl})` }}
+            aria-hidden
+          >
+            <img
+              src={bgPreviewUrl}
+              alt=""
+              hidden
+              onError={() => setBgFailed(true)}
+            />
+          </div>
+        )}
+        <div className="profile-photo-actions">
+          <button
+            type="button"
+            className="primary"
+            disabled={mediaBusy}
+            onClick={() => bgFileInputRef.current?.click()}
+          >
+            {uploadingBg
+              ? 'Uploading…'
+              : showBg
+                ? 'Replace background'
+                : 'Upload background'}
+          </button>
+          {showBg && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={mediaBusy}
+              onClick={() => void onRemoveBackground()}
             >
               Remove
             </button>
@@ -580,7 +697,7 @@ export default function ProfilePage() {
             <p>Changes apply to your public card and Add to Contacts after you save.</p>
           )}
         </div>
-        <button type="submit" disabled={loading || uploading}>
+        <button type="submit" disabled={loading || mediaBusy}>
           {loading ? 'Saving…' : 'Save profile'}
         </button>
       </div>

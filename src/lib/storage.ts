@@ -4,7 +4,10 @@ import { auth, storage } from './firebase';
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-export async function uploadProfilePhoto(file: File): Promise<{ url: string; path: string }> {
+async function uploadUserImage(
+  file: File,
+  basename: 'profile' | 'background'
+): Promise<{ url: string; path: string }> {
   if (!storage || !auth?.currentUser) {
     throw new Error('You must be signed in to upload a photo.');
   }
@@ -17,7 +20,7 @@ export async function uploadProfilePhoto(file: File): Promise<{ url: string; pat
 
   const uid = auth.currentUser.uid;
   const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-  const path = `profile-pictures/${uid}/profile.${extension}`;
+  const path = `profile-pictures/${uid}/${basename}.${extension}`;
   const objectRef = ref(storage, path);
 
   await uploadBytes(objectRef, file, {
@@ -27,6 +30,16 @@ export async function uploadProfilePhoto(file: File): Promise<{ url: string; pat
 
   const url = await getDownloadURL(objectRef);
   return { url, path };
+}
+
+/** Circle / avatar photo on the Kappa Card and contacts. */
+export async function uploadProfilePhoto(file: File): Promise<{ url: string; path: string }> {
+  return uploadUserImage(file, 'profile');
+}
+
+/** Full-bleed background behind the Kappa Card (not used in vCard). */
+export async function uploadCardBackground(file: File): Promise<{ url: string; path: string }> {
+  return uploadUserImage(file, 'background');
 }
 
 export async function profilePhotoToDataUrl(path: string): Promise<string> {

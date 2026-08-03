@@ -265,6 +265,18 @@
   align-items: center;
 }
 
+.profile-bg-preview {
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  background-color: #6d0e0f;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  margin-bottom: 0.75rem;
+}
+
 .profile-inviter {
   margin: 0;
   padding: 0.75rem 0.9rem;

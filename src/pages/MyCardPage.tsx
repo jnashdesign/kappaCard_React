@@ -3,7 +3,11 @@ import QRCode from 'qrcode';
 import { toPng } from 'html-to-image';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { isUsablePhotoUrl } from '../lib/photos';
+import {
+  CARD_BACKGROUND_SCRIM,
+  cardSurfaceBackground,
+  isUsablePhotoUrl,
+} from '../lib/photos';
 import { profilePhotoToDataUrl } from '../lib/storage';
 import { canUseCardFeatures, getUserById } from '../lib/users';
 import { recordCardImageDownload } from '../lib/userStats';
@@ -15,6 +19,7 @@ export default function MyCardPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [inviterLabel, setInviterLabel] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [bgFailed, setBgFailed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -26,10 +31,16 @@ export default function MyCardPage() {
 
   const photoUrl = isUsablePhotoUrl(profile?.profilePicture) ? profile!.profilePicture! : null;
   const showPhoto = Boolean(photoUrl && !photoFailed);
+  const bgUrl =
+    isUsablePhotoUrl(profile?.cardBackground) && !bgFailed ? profile!.cardBackground! : null;
 
   useEffect(() => {
     setPhotoFailed(false);
   }, [photoUrl]);
+
+  useEffect(() => {
+    setBgFailed(false);
+  }, [profile?.cardBackground]);
 
   useEffect(() => {
     if (!publicUrl) return;
@@ -94,6 +105,16 @@ export default function MyCardPage() {
         await photoEl.decode().catch(() => undefined);
       }
 
+      const restoreBgImage = cardRef.current.style.backgroundImage;
+      const restoreBg = cardRef.current.style.background;
+      if (bgUrl && profile.cardBackgroundPath) {
+        const dataUrl = await profilePhotoToDataUrl(profile.cardBackgroundPath);
+        cardRef.current.style.background = '';
+        cardRef.current.style.backgroundImage = `${CARD_BACKGROUND_SCRIM}, url("${dataUrl}")`;
+        cardRef.current.style.backgroundSize = 'cover';
+        cardRef.current.style.backgroundPosition = 'center';
+      }
+
       const dataUrl = await toPng(cardRef.current, {
         cacheBust: true,
         pixelRatio: 3,
@@ -103,6 +124,8 @@ export default function MyCardPage() {
       if (photoEl && restoreSrc) {
         photoEl.src = restoreSrc;
       }
+      cardRef.current.style.backgroundImage = restoreBgImage;
+      cardRef.current.style.background = restoreBg;
 
       const link = document.createElement('a');
       link.download = `kappa-card-${profile.username}.png`;
@@ -116,6 +139,8 @@ export default function MyCardPage() {
       setSaving(false);
     }
   }
+
+  const surfaceBg = cardSurfaceBackground(bgUrl);
 
   return (
     <section className="stack">
@@ -131,8 +156,7 @@ export default function MyCardPage() {
           ref={cardRef}
           className="card-frame"
           style={{
-            background:
-              'linear-gradient(160deg, #4a090a 0%, #6d0e0f 45%, #8a1a1c 100%)',
+            ...surfaceBg,
             color: '#f7f1e8',
             padding: '1.25rem 1.25rem 0 1.25rem',
             display: 'grid',
@@ -140,6 +164,15 @@ export default function MyCardPage() {
             gap: '0.85rem',
           }}
         >
+          {/* Hidden probe so a broken background URL falls back to the crimson gradient */}
+          {bgUrl && (
+            <img
+              src={bgUrl}
+              alt=""
+              hidden
+              onError={() => setBgFailed(true)}
+            />
+          )}
           <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
             {showPhoto && photoUrl && (
               <img
@@ -226,14 +259,15 @@ export default function MyCardPage() {
           <button type="button" onClick={() => void saveToCameraRoll()} disabled={saving || !qrDataUrl}>
             {saving ? 'Preparing image…' : 'Save Card Image'}
           </button>
-          <h2 style={{ margin:' 40px 0 -20px 0' }}>Manage Your Info</h2>
+          <h2 style={{ margin: ' 40px 0 -20px 0' }}>Manage Your Info</h2>
           <p className="muted">
-            Update your profile to keep your contact info up to date. You have full control over what's shared.
+            Update your profile to keep your contact info up to date. You have full control over what&apos;s shared.
           </p>
           <Link className="button secondary" to={`/card/${profile.username}`}>
             Preview My Info
           </Link>
-          <Link className="button secondary" to="/profile">Edit My Info
+          <Link className="button secondary" to="/profile">
+            Edit My Info
           </Link>
           {message && <p className="success">{message}</p>}
           {error && <p className="error">{error}</p>}

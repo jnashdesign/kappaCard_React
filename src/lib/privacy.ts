@@ -7,6 +7,7 @@ export type PrivacyField =
   | 'currentEmployer'
   | 'currentCity'
   | 'profilePicture'
+  | 'cardBackground'
   | 'linkedin'
   | 'x'
   | 'instagram'
@@ -23,6 +24,7 @@ export const PRIVACY_FIELDS: PrivacyField[] = [
   'currentEmployer',
   'currentCity',
   'profilePicture',
+  'cardBackground',
   'linkedin',
   'x',
   'instagram',
@@ -37,6 +39,7 @@ export const DEFAULT_FIELD_PRIVACY: Record<PrivacyField, FieldVisibility> = {
   currentEmployer: 'public',
   currentCity: 'public',
   profilePicture: 'public',
+  cardBackground: 'public',
   linkedin: 'public',
   x: 'public',
   instagram: 'public',
@@ -84,6 +87,9 @@ export function toPublicProfile(user: UserProfile): UserProfile {
     currentCity: privacy.currentCity === 'public' ? user.currentCity : undefined,
     profilePicture: privacy.profilePicture === 'public' ? user.profilePicture : undefined,
     profilePicturePath: privacy.profilePicture === 'public' ? user.profilePicturePath : undefined,
+    cardBackground: privacy.cardBackground === 'public' ? user.cardBackground : undefined,
+    cardBackgroundPath:
+      privacy.cardBackground === 'public' ? user.cardBackgroundPath : undefined,
     socialMedia,
   };
 }

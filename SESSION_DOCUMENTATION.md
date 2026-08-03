@@ -169,6 +169,14 @@ Keep the viral action (scan → contacts) fast and durable (static QR), while me
 - Optional `province` on profile. Firestore allows public engagement bumps limited to stats/milestone keys.
 - Phase 1 (events + Cloud Function daily rollups) deferred until this outgrows.
 
+## Session: Card background upload (2026-08-02)
+
+- Separate from circle photo: `cardBackground` + `cardBackgroundPath` on the user profile.
+- Storage path `profile-pictures/{uid}/background.{ext}`; Profile has **Circle photo** and **Card background** uploaders with independent Public/Private toggles.
+- My Card and public card hero use the background with a crimson scrim for readability; default gradient when unset.
+- PNG export inlines the background via Storage `getBlob` (same CORS-safe path as the circle photo).
+- vCard / Add to Contacts still uses only the circle photo.
+
 ## Session: Auth orphan + signup latency (2026-08-02)
 
 ### Email still “taken” after delete

@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserById, getUserByUsername } from '../lib/users';
 import { recordPublicCardEngagement } from '../lib/userStats';
-import { isUsablePhotoUrl } from '../lib/photos';
+import { cardSurfaceBackground, isUsablePhotoUrl } from '../lib/photos';
 import { formatUsPhone, phoneDigits } from '../lib/phone';
 import { toPublicProfile } from '../lib/privacy';
 import { downloadVCard, formatInviter } from '../lib/vcard';
@@ -49,6 +49,7 @@ export default function PublicCardPage() {
   const { profile: viewer } = useAuth();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [bgFailed, setBgFailed] = useState(false);
   const [inviterLabel, setInviterLabel] = useState<string | null>(null);
   const [resolvedInviter, setResolvedInviter] = useState<{
     invitedByName?: string;
@@ -77,6 +78,8 @@ export default function PublicCardPage() {
         }
 
         setUser(result);
+        setPhotoFailed(false);
+        setBgFailed(false);
         setPhotoFailed(false);
         if (result.username !== username.toLowerCase()) {
           window.history.replaceState(null, '', `/card/${result.username}`);
@@ -128,6 +131,11 @@ export default function PublicCardPage() {
 
   const publicUser = toPublicProfile(user);
   const showPhoto = isUsablePhotoUrl(publicUser.profilePicture) && !photoFailed;
+  const bgUrl =
+    isUsablePhotoUrl(publicUser.cardBackground) && !bgFailed
+      ? publicUser.cardBackground!
+      : null;
+  const heroBg = cardSurfaceBackground(bgUrl);
   const inviterUsername = user.invitedByUsername || resolvedInviter?.invitedByUsername;
   const vcardUser = {
     ...publicUser,
@@ -181,7 +189,13 @@ export default function PublicCardPage() {
 
   return (
     <section className="public-card-page">
-      <article className="public-card-hero">
+      <article
+        className={`public-card-hero${bgUrl ? ' public-card-hero--custom-bg' : ''}`}
+        style={heroBg}
+      >
+        {bgUrl && (
+          <img src={bgUrl} alt="" hidden onError={() => setBgFailed(true)} />
+        )}
         <div className="public-card-hero-body">
 
           <div className="public-card-photo">

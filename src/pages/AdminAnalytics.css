@@ -17,6 +17,10 @@
   background: var(--panel);
 }
 
+.admin-kpi .muted {
+  font-size: 0.8em;
+}
+
 .admin-kpi-label {
   font-size: 0.78rem;
   font-weight: 700;
@@ -84,7 +88,7 @@
 .admin-funnel-bar {
   height: 0.65rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--gold) 55%, var(--crimson));
+  background: var(--crimson);
 }
 
 .admin-split {

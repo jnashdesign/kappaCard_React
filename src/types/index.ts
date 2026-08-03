@@ -38,6 +38,9 @@ export interface UserProfile {
   profilePicture?: string;
   /** Storage object path for reliable card export via getBlob */
   profilePicturePath?: string;
+  /** Custom Kappa Card / public hero background (separate from circle photo) */
+  cardBackground?: string;
+  cardBackgroundPath?: string;
   socialMedia?: SocialMedia;
   /** Per-field visibility for optional contact details */
   fieldPrivacy?: FieldPrivacy;
