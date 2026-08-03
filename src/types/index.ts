@@ -124,6 +124,21 @@ export interface AccountDeletion {
   deletedAt: string;
 }
 
+/** One-sided bookmark of another brother's public card (from Save to Contacts). */
+export interface CollectedCard {
+  id: string;
+  subjectUserId: string;
+  username: string;
+  name: string;
+  chapter: string;
+  initiationYear: number;
+  profilePicture?: string;
+  occupation?: string;
+  currentCity?: string;
+  collectedAt: string;
+  source: 'vcard_download';
+}
+
 /** Public request for an invite — admin verifies membership manually */
 export interface InviteRequest {
   id: string;
@@ -150,6 +165,7 @@ export const RESERVED_USERNAMES = [
   'profile',
   'invite',
   'invites',
+  'collected',
   'request-invite',
   'requests',
   'upgrade',

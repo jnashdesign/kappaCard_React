@@ -169,6 +169,15 @@ Keep the viral action (scan → contacts) fast and durable (static QR), while me
 - Optional `province` on profile. Firestore allows public engagement bumps limited to stats/milestone keys.
 - Phase 1 (events + Cloud Function daily rollups) deferred until this outgrows.
 
+## Session: Collected brothers list (2026-08-03)
+
+- Signed-in members who tap **Save to Contacts** on another brother’s `/card/:username` also upsert a bookmark under `users/{uid}/collectedCards/{subjectUid}`.
+- Anonymous downloads still get the `.vcf` only; footnote prompts sign-in to keep him in Collected.
+- New protected `/collected` page + nav link: list by `collectedAt` desc with link to live card and Remove.
+- Client-side search filters the list by name, username, chapter, city, occupation, or year.
+- Firestore rules: owner-only read/write on the subcollection. Account delete clears collected cards.
+- Not Basic-gated; one-sided bookmark (not connection requests).
+
 ## Session: Card background upload (2026-08-02)
 
 - Separate from circle photo: `cardBackground` + `cardBackgroundPath` on the user profile.

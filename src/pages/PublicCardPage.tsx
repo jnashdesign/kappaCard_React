@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { saveCollectedCard } from '../lib/collectedCards';
 import { getUserById, getUserByUsername } from '../lib/users';
 import { recordPublicCardEngagement } from '../lib/userStats';
 import { cardSurfaceBackground, isUsablePhotoUrl } from '../lib/photos';
@@ -154,14 +155,27 @@ export default function PublicCardPage() {
     try {
       const result = await downloadVCard(vcardUser);
       void recordPublicCardEngagement(user.id, 'contactDownloads', user).catch(() => undefined);
+
+      let collectedNote = '';
+      if (viewer && viewer.id !== user.id) {
+        try {
+          await saveCollectedCard(viewer.id, user);
+          collectedNote = ' Also saved to your Collected list.';
+        } catch {
+          collectedNote = ' Could not add to Collected — try again while signed in.';
+        }
+      }
+
       if (vcardUser.profilePicture && !result.includedPhoto) {
         setMessage(
-          'Contact downloaded, but the photo could not be embedded. Try again in a moment.'
+          `Contact downloaded, but the photo could not be embedded. Try again in a moment.${collectedNote}`
         );
       } else if (result.includedPhoto) {
         setMessage(
-          'Contact downloaded with photo. If you still see an old picture on My Card, update that photo in Contacts separately.'
+          `Contact downloaded with photo.${collectedNote} If you still see an old picture on My Card, update that photo in Contacts separately.`
         );
+      } else {
+        setMessage(`Contact downloaded.${collectedNote}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not prepare contact card.');
@@ -265,7 +279,15 @@ export default function PublicCardPage() {
 
         {!viewer && (
           <p className="muted public-card-footnote">
-            Have an invite? <Link to="/signup">Create your own Kappa Card</Link>
+            Sign in to keep this brother in your{' '}
+            <Link to="/login">Collected</Link> list after you save the contact.
+            {' '}Have an invite? <Link to="/signup">Create your own Kappa Card</Link>
+          </p>
+        )}
+        {viewer && viewer.id !== user.id && (
+          <p className="muted public-card-footnote">
+            Saving to Contacts also adds him to your{' '}
+            <Link to="/collected">Collected</Link> list.
           </p>
         )}
       </div>

@@ -24,6 +24,7 @@ import {
 } from 'firebase/auth';
 import { deleteObject, listAll, ref } from 'firebase/storage';
 import { auth, db, googleProvider, storage } from './firebase';
+import { deleteAllCollectedCards } from './collectedCards';
 import type {
   AccountDeletion,
   FieldPrivacy,
@@ -817,6 +818,7 @@ export async function deleteMyAccount(
   await Promise.all([
     ...aliasDeletes,
     ...invites.map((invite) => deleteDoc(doc(database, 'invites', invite.id))),
+    deleteAllCollectedCards(uid),
   ]);
 
   // Profile photos in Storage

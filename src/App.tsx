@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminPage from './pages/AdminPage';
+import CollectedPage from './pages/CollectedPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import InvitesPage from './pages/InvitesPage';
 import LandingPage from './pages/LandingPage';
@@ -61,6 +62,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MyCardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="collected"
+              element={
+                <ProtectedRoute>
+                  <CollectedPage />
                 </ProtectedRoute>
               }
             />
