@@ -198,3 +198,72 @@ Keep the viral action (scan → contacts) fast and durable (static QR), while me
 - Latency came from sequential Firestore work in `createUserProfile`: username availability (2 reads), invite query, optional inviter fetch, then user doc → claimUsername (re-checked availability) → personal invite → re-fetched invite to mark used.
 - Fix: parallel username reads; skip second availability check on claim; write user + username + personal invite in `Promise.all`; mark redeemed invite without a redundant getDoc.
 
+## Session: Public card social icons (2026-08-08)
+
+- Contact details on `/card/{username}` now include public social handles as icon-only links (LinkedIn, X, Instagram, Snapchat).
+- Icons open the profile URL in a new tab; handles still respect per-field Public/Private via `toPublicProfile()`.
+- Shared URL builders live in `src/lib/social.ts` (also used by vCard social URL lines).
+- Details card still shows when only socials are public (no email/phone).
+
+## Session: My Card toolbar icons (2026-08-08)
+
+- Removed the verbose “Keep Your Card Ready / Manage Your Info” side panel and three text buttons.
+- Owner actions are now a compact toolbar on the card’s top-right: download, edit (profile), preview (public card).
+- Toolbar sits outside the PNG capture node so icons are not baked into the downloaded card image.
+
+## Session: YouTube + TikTok handles (2026-08-08)
+
+- Added optional `youtube` and `tiktok` to `socialMedia`, with Public/Private toggles on Profile (same pattern as other socials).
+- Public card icons + vCard URL lines include them when Public (`youtube.com/@handle`, `tiktok.com/@handle`).
+
+## Session: QR visit attribution (2026-08-09)
+
+- New QR codes encode `/card/{username}?via=qr`; normal shares, nav, preview, and vCard URLs stay `/card/{username}` (no query).
+- `PublicCardPage` derives `visitSource` (`qr` | `direct`) from the query and exposes it as `data-visit-source` for later QR-origin UX.
+- Alias username redirects preserve the search string so `?via=qr` is not dropped; `/kard/:username` redirects preserve search too.
+- Profile view analytics (Phase 0 counters): still increments `stats.cardViews`, plus `stats.cardViewsQr` or `stats.cardViewsDirect` by source. Session debounce key includes source.
+- Old printed QR codes without `?via=qr` continue to work and count as `direct`.
+- Helpers live in `src/lib/cardUrl.ts`.
+
+## Session: QR auto Save-to-Contacts experiment (2026-08-09)
+
+- On `?via=qr` visits only, after the profile loads, attempt the existing vCard download once (same path as **Save to Contacts**).
+- Normal `/card/{username}` visits never auto-download; the button always remains for retry if auto is blocked/cancelled/fails.
+- Guards: `sessionStorage` key `kappa:autoVcard:{userId}` (blocks refresh loops), in-memory ref (Strict Mode), `isLikelyBotOrPreviewAgent()` UA/webdriver heuristic.
+- Temporary console logs prefixed `[KappaCard QR]`: visit detected, auto attempt initiated, failure/prevention when detectable.
+- Does not bypass OS/browser confirmations — iOS may still show its download/Add Contact sheet.
+
+### Manual test plan (QR auto vCard)
+
+Use a **new** QR (regenerate My Card image) or open `/card/{username}?via=qr`. Watch DevTools / remote Web Inspector for `[KappaCard QR]` logs. Clear the tab’s sessionStorage (or use a fresh private tab) when re-testing auto-download.
+
+**Common checks (all platforms)**  
+1. Direct visit `/card/{username}` — profile loads; **no** auto download; button works.  
+2. QR visit `?via=qr` — profile loads; auto attempt runs once; button still visible.  
+3. Refresh the QR URL — must **not** auto-download again in the same tab session.  
+4. If auto fails/blocked — tap **Save to Contacts**; should still work.  
+5. Confirm OS dialogs are still shown (do not expect silent add-to-contacts).
+
+**iPhone Safari**  
+1. Scan regenerated card QR (or paste `?via=qr` URL).  
+2. Expect: page loads; Safari download / preview / “Add to Contacts” style UI as usual for `.vcf`.  
+3. Logs: QR visit detected → Automatic vCard attempt initiated.  
+4. Refresh — no second auto attempt.  
+5. Cancel OS prompt if shown, then use **Save to Contacts**.
+
+**Android Chrome**  
+1. Open `?via=qr` (scan or paste).  
+2. Expect: download of `.vcf` or open-with Contacts prompt.  
+3. Same refresh / button fallback checks as above.
+
+**Desktop Safari**  
+1. Open `?via=qr`.  
+2. Expect: download of `.vcf` (Downloads list); open file to add contact.  
+3. Note: programmatic download without a click may be limited — if blocked, log should report failure and button remains the path.
+
+**Desktop Chrome**  
+1. Open `?via=qr`.  
+2. Expect: `.vcf` download in the download bar.  
+3. Refresh loop + button fallback checks.  
+4. Direct visit control: no auto download.
+

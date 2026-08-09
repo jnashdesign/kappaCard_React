@@ -7,6 +7,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import type { ProfileVisitSource } from './cardUrl';
 import type { UserProfile, UserStats } from '../types';
 
 function requireDb() {
@@ -20,6 +21,8 @@ export const EMPTY_USER_STATS: UserStats = {
   profileUpdates: 0,
   cardImageDownloads: 0,
   cardViews: 0,
+  cardViewsQr: 0,
+  cardViewsDirect: 0,
   contactDownloads: 0,
 };
 
@@ -31,6 +34,8 @@ export function mapUserStats(data: DocumentData | undefined): UserStats {
     profileUpdates: Number(raw?.profileUpdates) || 0,
     cardImageDownloads: Number(raw?.cardImageDownloads) || 0,
     cardViews: Number(raw?.cardViews) || 0,
+    cardViewsQr: Number(raw?.cardViewsQr) || 0,
+    cardViewsDirect: Number(raw?.cardViewsDirect) || 0,
     contactDownloads: Number(raw?.contactDownloads) || 0,
   };
 }
@@ -54,7 +59,14 @@ export function isProfileComplete(user: Pick<
   if (user.currentCity?.trim()) return true;
   if (user.profilePicture?.trim()) return true;
   const socials = user.socialMedia ?? {};
-  return Boolean(socials.linkedin || socials.x || socials.instagram || socials.snapchat);
+  return Boolean(
+    socials.linkedin ||
+      socials.x ||
+      socials.instagram ||
+      socials.snapchat ||
+      socials.youtube ||
+      socials.tiktok
+  );
 }
 
 export type OwnStatKey =
@@ -113,11 +125,15 @@ export async function recordCardImageDownload(user: UserProfile): Promise<void> 
 /**
  * Public engagement on a card owner's profile (view or contact download).
  * Debounce views in the caller (session) to limit write spam.
+ *
+ * For profile views (`cardViews`), pass `source` so we can attribute QR vs direct
+ * while still incrementing the aggregate `stats.cardViews` counter.
  */
 export async function recordPublicCardEngagement(
   subjectUserId: string,
   kind: PublicStatKey,
-  existing?: Pick<UserProfile, 'firstCardViewedAt' | 'firstContactDownloadedAt'>
+  existing?: Pick<UserProfile, 'firstCardViewedAt' | 'firstContactDownloadedAt'>,
+  options?: { source?: ProfileVisitSource }
 ): Promise<void> {
   const database = requireDb();
   const now = new Date().toISOString();
@@ -125,6 +141,12 @@ export async function recordPublicCardEngagement(
     [`stats.${kind}`]: increment(1),
     updatedAt: serverTimestamp(),
   };
+
+  if (kind === 'cardViews') {
+    const source = options?.source === 'qr' ? 'qr' : 'direct';
+    payload[source === 'qr' ? 'stats.cardViewsQr' : 'stats.cardViewsDirect'] = increment(1);
+  }
+
   if (kind === 'cardViews' && !existing?.firstCardViewedAt) {
     payload.firstCardViewedAt = now;
   }

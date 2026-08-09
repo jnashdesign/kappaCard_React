@@ -8,6 +8,8 @@ export interface SocialMedia {
   x?: string;
   instagram?: string;
   snapchat?: string;
+  youtube?: string;
+  tiktok?: string;
 }
 
 /** Lifetime product-action counters (Phase 0 analytics). */
@@ -17,6 +19,10 @@ export interface UserStats {
   profileUpdates: number;
   cardImageDownloads: number;
   cardViews: number;
+  /** Subset of cardViews that arrived with ?via=qr */
+  cardViewsQr: number;
+  /** Subset of cardViews without QR attribution */
+  cardViewsDirect: number;
   contactDownloads: number;
 }
 

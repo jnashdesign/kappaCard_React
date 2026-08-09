@@ -1,7 +1,8 @@
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
+import { publicCardPathWithSearch } from './lib/cardUrl';
 import AdminPage from './pages/AdminPage';
 import CollectedPage from './pages/CollectedPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
@@ -19,7 +20,8 @@ import UpgradeSuccessPage from './pages/UpgradeSuccessPage';
 
 function LegacyKardRedirect() {
   const { username } = useParams();
-  return <Navigate to={`/card/${username ?? ''}`} replace />;
+  const { search } = useLocation();
+  return <Navigate to={publicCardPathWithSearch(username ?? '', search)} replace />;
 }
 
 export default function App() {

@@ -79,6 +79,8 @@ export default function ProfilePage() {
     x: profile?.socialMedia?.x ?? '',
     instagram: profile?.socialMedia?.instagram ?? '',
     snapchat: profile?.socialMedia?.snapchat ?? '',
+    youtube: profile?.socialMedia?.youtube ?? '',
+    tiktok: profile?.socialMedia?.tiktok ?? '',
   });
   const [privacy, setPrivacy] = useState(() => normalizeFieldPrivacy(profile?.fieldPrivacy));
   const initialPhoto = isUsablePhotoUrl(profile?.profilePicture) ? profile!.profilePicture! : '';
@@ -116,6 +118,8 @@ export default function ProfilePage() {
       x: profile.socialMedia?.x ?? '',
       instagram: profile.socialMedia?.instagram ?? '',
       snapchat: profile.socialMedia?.snapchat ?? '',
+      youtube: profile.socialMedia?.youtube ?? '',
+      tiktok: profile.socialMedia?.tiktok ?? '',
     });
     setPrivacy(normalizeFieldPrivacy(profile.fieldPrivacy));
     const photo = isUsablePhotoUrl(profile.profilePicture) ? profile.profilePicture! : '';
@@ -258,6 +262,8 @@ export default function ProfilePage() {
           x: form.x || undefined,
           instagram: form.instagram || undefined,
           snapchat: form.snapchat || undefined,
+          youtube: form.youtube || undefined,
+          tiktok: form.tiktok || undefined,
         },
         fieldPrivacy: privacy,
       });
@@ -618,6 +624,28 @@ export default function ProfilePage() {
             <input
               value={form.snapchat}
               onChange={(e) => setForm((f) => ({ ...f, snapchat: e.target.value }))}
+              placeholder="handle"
+            />
+          </FieldRow>
+          <FieldRow
+            label="YouTube"
+            visibility={privacy.youtube}
+            onVisibilityChange={(value) => setFieldPrivacy('youtube', value)}
+          >
+            <input
+              value={form.youtube}
+              onChange={(e) => setForm((f) => ({ ...f, youtube: e.target.value }))}
+              placeholder="handle"
+            />
+          </FieldRow>
+          <FieldRow
+            label="TikTok"
+            visibility={privacy.tiktok}
+            onVisibilityChange={(value) => setFieldPrivacy('tiktok', value)}
+          >
+            <input
+              value={form.tiktok}
+              onChange={(e) => setForm((f) => ({ ...f, tiktok: e.target.value }))}
               placeholder="handle"
             />
           </FieldRow>

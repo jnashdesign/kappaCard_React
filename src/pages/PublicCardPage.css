@@ -216,6 +216,42 @@ a.public-detail-row .public-detail-value {
   color: var(--crimson);
 }
 
+.public-social-row {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem 1rem;
+}
+
+.public-social-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.public-social-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--crimson);
+  background: color-mix(in srgb, var(--crimson) 8%, white);
+  border: 1px solid color-mix(in srgb, var(--crimson) 16%, transparent);
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.public-social-icon:hover {
+  background: var(--crimson);
+  color: #fff8f0;
+  transform: translateY(-1px);
+}
+
+.public-social-icon:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .public-card-actions {
   display: grid;
   gap: 0.65rem;

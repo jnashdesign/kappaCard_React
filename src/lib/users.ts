@@ -407,6 +407,8 @@ export async function updateUserProfile(
       x: sm.x?.trim() ? sm.x.trim() : deleteField(),
       instagram: sm.instagram?.trim() ? sm.instagram.trim() : deleteField(),
       snapchat: sm.snapchat?.trim() ? sm.snapchat.trim() : deleteField(),
+      youtube: sm.youtube?.trim() ? sm.youtube.trim() : deleteField(),
+      tiktok: sm.tiktok?.trim() ? sm.tiktok.trim() : deleteField(),
     };
   }
 

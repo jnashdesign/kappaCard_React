@@ -11,7 +11,9 @@ export type PrivacyField =
   | 'linkedin'
   | 'x'
   | 'instagram'
-  | 'snapchat';
+  | 'snapchat'
+  | 'youtube'
+  | 'tiktok';
 
 export type FieldVisibility = 'public' | 'private';
 
@@ -29,6 +31,8 @@ export const PRIVACY_FIELDS: PrivacyField[] = [
   'x',
   'instagram',
   'snapchat',
+  'youtube',
+  'tiktok',
 ];
 
 /** Defaults keep current product behavior: optional fields are public until changed. */
@@ -44,6 +48,8 @@ export const DEFAULT_FIELD_PRIVACY: Record<PrivacyField, FieldVisibility> = {
   x: 'public',
   instagram: 'public',
   snapchat: 'public',
+  youtube: 'public',
+  tiktok: 'public',
 };
 
 export function normalizeFieldPrivacy(privacy?: FieldPrivacy | null): Record<PrivacyField, FieldVisibility> {
@@ -76,6 +82,12 @@ export function toPublicProfile(user: UserProfile): UserProfile {
   }
   if (privacy.snapchat === 'public' && user.socialMedia?.snapchat) {
     socialMedia.snapchat = user.socialMedia.snapchat;
+  }
+  if (privacy.youtube === 'public' && user.socialMedia?.youtube) {
+    socialMedia.youtube = user.socialMedia.youtube;
+  }
+  if (privacy.tiktok === 'public' && user.socialMedia?.tiktok) {
+    socialMedia.tiktok = user.socialMedia.tiktok;
   }
 
   return {

@@ -1,0 +1,66 @@
+.my-card-page {
+  max-width: 480px;
+}
+
+.my-card-stage {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.my-card-stage .card-frame {
+  margin: 0;
+  width: 100%;
+}
+
+.my-card-toolbar {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.my-card-tool {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 248, 240, 0.28);
+  background: rgba(28, 10, 10, 0.42);
+  color: #fff8f0;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+button.my-card-tool {
+  font: inherit;
+}
+
+.my-card-tool:hover:not(:disabled) {
+  background: rgba(109, 14, 15, 0.92);
+  border-color: color-mix(in srgb, var(--gold) 55%, white);
+  transform: translateY(-1px);
+}
+
+.my-card-tool:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.my-card-tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.my-card-status {
+  text-align: center;
+  margin: 0;
+}

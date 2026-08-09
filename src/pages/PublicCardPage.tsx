@@ -1,12 +1,20 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { isLikelyBotOrPreviewAgent } from '../lib/bots';
 import { saveCollectedCard } from '../lib/collectedCards';
+import {
+  profileVisitSourceFromSearch,
+  publicCardPathWithSearch,
+  type ProfileVisitSource,
+} from '../lib/cardUrl';
 import { getUserById, getUserByUsername } from '../lib/users';
+import { qrDevLog } from '../lib/qrDevLog';
 import { recordPublicCardEngagement } from '../lib/userStats';
 import { cardSurfaceBackground, isUsablePhotoUrl } from '../lib/photos';
 import { formatUsPhone, phoneDigits } from '../lib/phone';
 import { toPublicProfile } from '../lib/privacy';
+import { publicSocialLinks, type SocialNetwork } from '../lib/social';
 import { downloadVCard, formatInviter } from '../lib/vcard';
 import type { UserProfile } from '../types';
 import './PublicCardPage.css';
@@ -45,8 +53,76 @@ function DetailRow({
   return <div className="public-detail-row">{content}</div>;
 }
 
+function SocialIcon({ network }: { network: SocialNetwork }) {
+  const common = {
+    viewBox: '0 0 24 24',
+    width: 20,
+    height: 20,
+    'aria-hidden': true as const,
+    focusable: false as const,
+  };
+
+  switch (network) {
+    case 'linkedin':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.21 0 22.23 0z"
+          />
+        </svg>
+      );
+    case 'x':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M18.24 2H21.5l-7.19 8.21L22.5 22h-6.59l-5.16-6.74L5.4 22H2.12l7.69-8.79L1.5 2h6.75l4.66 6.16L18.24 2zm-1.16 18h1.83L7.2 3.94H5.24L17.08 20z"
+          />
+        </svg>
+      );
+    case 'instagram':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M12 7.2A4.8 4.8 0 1 0 12 16.8 4.8 4.8 0 0 0 12 7.2zm0 7.92A3.12 3.12 0 1 1 12 8.88a3.12 3.12 0 0 1 0 6.24zM17.52 6.98a1.12 1.12 0 1 1-2.24 0 1.12 1.12 0 0 1 2.24 0zM12 2.16c-2.72 0-3.06.01-4.13.06-2.77.13-4.16 1.52-4.29 4.29-.05 1.07-.06 1.41-.06 4.13s.01 3.06.06 4.13c.13 2.76 1.52 4.16 4.29 4.29 1.07.05 1.41.06 4.13.06s3.06-.01 4.13-.06c2.77-.13 4.16-1.53 4.29-4.29.05-1.07.06-1.41.06-4.13s-.01-3.06-.06-4.13c-.13-2.77-1.52-4.16-4.29-4.29-1.07-.05-1.41-.06-4.13-.06zm0 1.8c2.67 0 2.99.01 4.04.06 1.97.09 2.9 1.02 2.99 2.99.05 1.05.06 1.37.06 4.04s-.01 2.99-.06 4.04c-.09 1.96-1.02 2.9-2.99 2.99-1.05.05-1.37.06-4.04.06s-2.99-.01-4.04-.06c-1.97-.09-2.9-1.03-2.99-2.99-.05-1.05-.06-1.37-.06-4.04s.01-2.99.06-4.04c.09-1.97 1.02-2.9 2.99-2.99 1.05-.05 1.37-.06 4.04-.06z"
+          />
+        </svg>
+      );
+    case 'snapchat':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M12.15.5c2.84 0 4.64 1.9 4.64 4.75 0 .55-.04 1.12-.08 1.66 1.04-.52 2.08-.92 3.1-.92.62 0 1.2.18 1.64.62.4.4.6.94.6 1.5 0 .9-.56 1.62-1.5 2.2-.2.12-.42.24-.64.36.12.74.52 1.9 1.28 2.72.62.66 1.36 1.04 2.14 1.14a.7.7 0 0 1 .58.78c-.08.5-.52.82-1.06.82-.14 0-.28-.02-.42-.06-.62-.16-1.24-.32-1.9-.32-.4 0-.78.06-1.14.2-1.24.46-2.16 1.42-3.34 2.26-.78.56-1.66 1.04-2.74 1.22-.18.32-.5.76-.96 1.2-.2.2-.46.3-.72.3s-.52-.1-.72-.3c-.46-.44-.78-.88-.96-1.2-1.08-.18-1.96-.66-2.74-1.22-1.18-.84-2.1-1.8-3.34-2.26-.36-.14-.74-.2-1.14-.2-.66 0-1.28.16-1.9.32-.14.04-.28.06-.42.06-.54 0-.98-.32-1.06-.82a.7.7 0 0 1 .58-.78c.78-.1 1.52-.48 2.14-1.14.76-.82 1.16-1.98 1.28-2.72-.22-.12-.44-.24-.64-.36-.94-.58-1.5-1.3-1.5-2.2 0-.56.2-1.1.6-1.5.44-.44 1.02-.62 1.64-.62 1.02 0 2.06.4 3.1.92-.04-.54-.08-1.11-.08-1.66C7.5 2.4 9.3.5 12.15.5z"
+          />
+        </svg>
+      );
+    case 'youtube':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M23.5 7.2a3 3 0 0 0-2.12-2.13C19.5 4.5 12 4.5 12 4.5s-7.5 0-9.38.57A3 3 0 0 0 .5 7.2 31.5 31.5 0 0 0 0 12a31.5 31.5 0 0 0 .5 4.8 3 3 0 0 0 2.12 2.12C4.5 19.5 12 19.5 12 19.5s7.5 0 9.38-.58a3 3 0 0 0 2.12-2.12A31.5 31.5 0 0 0 24 12a31.5 31.5 0 0 0-.5-4.8zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"
+          />
+        </svg>
+      );
+    case 'tiktok':
+      return (
+        <svg {...common}>
+          <path
+            fill="currentColor"
+            d="M16.5 3.2c.7 1.7 2.1 3 3.9 3.5V9a7.4 7.4 0 0 1-3.9-1.1v6.4A5.7 5.7 0 1 1 10.8 8.7v2.5a3.2 3.2 0 1 0 2.3 3.1V3h3.4z"
+          />
+        </svg>
+      );
+  }
+}
+
 export default function PublicCardPage() {
   const { username = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { profile: viewer } = useAuth();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -62,6 +138,13 @@ export default function PublicCardPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
+  const autoVcardClaimedRef = useRef(false);
+
+  // Available for QR-origin UX (auto contact save, analytics, etc.)
+  const visitSource: ProfileVisitSource = useMemo(
+    () => profileVisitSourceFromSearch(searchParams),
+    [searchParams]
+  );
 
   useEffect(() => {
     let active = true;
@@ -83,7 +166,12 @@ export default function PublicCardPage() {
         setBgFailed(false);
         setPhotoFailed(false);
         if (result.username !== username.toLowerCase()) {
-          window.history.replaceState(null, '', `/card/${result.username}`);
+          // Preserve ?via=qr (and any other params) across alias → canonical username
+          window.history.replaceState(
+            null,
+            '',
+            publicCardPathWithSearch(result.username, window.location.search)
+          );
         }
 
         let fields = {
@@ -108,10 +196,13 @@ export default function PublicCardPage() {
         setResolvedInviter(fields);
         setInviterLabel(formatInviter(fields));
 
-        const viewKey = `kappa:cardView:${result.id}`;
+        const source = profileVisitSourceFromSearch(window.location.search);
+        const viewKey = `kappa:cardView:${result.id}:${source}`;
         if (!sessionStorage.getItem(viewKey)) {
           sessionStorage.setItem(viewKey, '1');
-          void recordPublicCardEngagement(result.id, 'cardViews', result).catch(() => undefined);
+          void recordPublicCardEngagement(result.id, 'cardViews', result, { source }).catch(
+            () => undefined
+          );
         }
       })
       .catch((err) => {
@@ -126,6 +217,99 @@ export default function PublicCardPage() {
     };
   }, [username]);
 
+  const saveContact = useCallback(
+    async (subject: UserProfile, opts?: { fromAuto?: boolean }) => {
+      setError(null);
+      setMessage(null);
+      setSavingContact(true);
+      try {
+        const publicSubject = toPublicProfile(subject);
+        const inviterUsername =
+          subject.invitedByUsername || resolvedInviter?.invitedByUsername;
+        const vcardPayload = {
+          ...publicSubject,
+          invitedByName: subject.invitedByName || resolvedInviter?.invitedByName,
+          invitedByUsername: inviterUsername,
+          invitedByChapter: subject.invitedByChapter || resolvedInviter?.invitedByChapter,
+          invitedByInitiationYear:
+            subject.invitedByInitiationYear || resolvedInviter?.invitedByInitiationYear,
+        };
+
+        const result = await downloadVCard(vcardPayload);
+        void recordPublicCardEngagement(subject.id, 'contactDownloads', subject).catch(
+          () => undefined
+        );
+
+        let collectedNote = '';
+        if (viewer && viewer.id !== subject.id) {
+          try {
+            await saveCollectedCard(viewer.id, subject);
+            collectedNote = ' Also saved to your Collected list.';
+          } catch {
+            collectedNote = ' Could not add to Collected — try again while signed in.';
+          }
+        }
+
+        if (vcardPayload.profilePicture && !result.includedPhoto) {
+          setMessage(
+            `Contact downloaded, but the photo could not be embedded. Try again in a moment.${collectedNote}`
+          );
+        } else if (result.includedPhoto) {
+          setMessage(
+            `Contact downloaded with photo.${collectedNote} If you still see an old picture on My Card, update that photo in Contacts separately.`
+          );
+        } else {
+          setMessage(`Contact downloaded.${collectedNote}`);
+        }
+      } catch (err) {
+        if (opts?.fromAuto) {
+          qrDevLog('Browser prevented or failed the automatic vCard attempt.', err);
+        }
+        setError(err instanceof Error ? err.message : 'Could not prepare contact card.');
+        throw err;
+      } finally {
+        setSavingContact(false);
+      }
+    },
+    [viewer, resolvedInviter]
+  );
+
+  // QR-origin experiment: attempt one automatic vCard download after profile load.
+  useEffect(() => {
+    if (loading || !user) return;
+    if (visitSource !== 'qr') return;
+
+    qrDevLog('QR visit detected.');
+
+    if (isLikelyBotOrPreviewAgent()) {
+      qrDevLog('Bot/crawler/preview agent detected — skipping automatic vCard.');
+      return;
+    }
+
+    const storageKey = `kappa:autoVcard:${user.id}`;
+    try {
+      if (sessionStorage.getItem(storageKey)) {
+        qrDevLog('Auto vCard already attempted this tab session — skipping (blocks refresh loop).');
+        return;
+      }
+    } catch {
+      // sessionStorage may throw in locked-down contexts; ref still guards remounts
+    }
+
+    if (autoVcardClaimedRef.current) return;
+    autoVcardClaimedRef.current = true;
+    try {
+      sessionStorage.setItem(storageKey, '1');
+    } catch {
+      // ignore — in-memory ref still prevents Strict Mode double-fire in this mount
+    }
+
+    qrDevLog('Automatic vCard attempt initiated.');
+    void saveContact(user, { fromAuto: true }).catch(() => {
+      // Error already logged + surfaced via setError; button remains available
+    });
+  }, [loading, user, visitSource, saveContact]);
+
   if (loading) return <div className="panel">Loading card…</div>;
   if (error && !user) return <div className="panel error">{error}</div>;
   if (!user) return null;
@@ -138,51 +322,6 @@ export default function PublicCardPage() {
       : null;
   const heroBg = cardSurfaceBackground(bgUrl);
   const inviterUsername = user.invitedByUsername || resolvedInviter?.invitedByUsername;
-  const vcardUser = {
-    ...publicUser,
-    invitedByName: user.invitedByName || resolvedInviter?.invitedByName,
-    invitedByUsername: inviterUsername,
-    invitedByChapter: user.invitedByChapter || resolvedInviter?.invitedByChapter,
-    invitedByInitiationYear:
-      user.invitedByInitiationYear || resolvedInviter?.invitedByInitiationYear,
-  };
-
-  async function onSaveContact() {
-    if (!user) return;
-    setError(null);
-    setMessage(null);
-    setSavingContact(true);
-    try {
-      const result = await downloadVCard(vcardUser);
-      void recordPublicCardEngagement(user.id, 'contactDownloads', user).catch(() => undefined);
-
-      let collectedNote = '';
-      if (viewer && viewer.id !== user.id) {
-        try {
-          await saveCollectedCard(viewer.id, user);
-          collectedNote = ' Also saved to your Collected list.';
-        } catch {
-          collectedNote = ' Could not add to Collected — try again while signed in.';
-        }
-      }
-
-      if (vcardUser.profilePicture && !result.includedPhoto) {
-        setMessage(
-          `Contact downloaded, but the photo could not be embedded. Try again in a moment.${collectedNote}`
-        );
-      } else if (result.includedPhoto) {
-        setMessage(
-          `Contact downloaded with photo.${collectedNote} If you still see an old picture on My Card, update that photo in Contacts separately.`
-        );
-      } else {
-        setMessage(`Contact downloaded.${collectedNote}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not prepare contact card.');
-    } finally {
-      setSavingContact(false);
-    }
-  }
 
   const detailRows: ReactNode[] = [];
   if (publicUser.email) {
@@ -201,8 +340,11 @@ export default function PublicCardPage() {
     );
   }
 
+  const socialLinks = publicSocialLinks(publicUser.socialMedia);
+  const hasContactDetails = detailRows.length > 0 || socialLinks.length > 0;
+
   return (
-    <section className="public-card-page">
+    <section className="public-card-page" data-visit-source={visitSource}>
       <article
         className={`public-card-hero${bgUrl ? ' public-card-hero--custom-bg' : ''}`}
         style={heroBg}
@@ -245,7 +387,7 @@ export default function PublicCardPage() {
           type="button"
           className="public-card-cta"
           disabled={savingContact}
-          onClick={() => void onSaveContact()}
+          onClick={() => void saveContact(user).catch(() => undefined)}
         >
           {savingContact ? 'Preparing contact…' : 'Save to Contacts'}
         </button>
@@ -254,9 +396,32 @@ export default function PublicCardPage() {
           when set to Public.
         </p>
 
-        {detailRows.length > 0 ? (
+        {hasContactDetails ? (
           <>
-            <div className="public-card-details">{detailRows}</div>
+            <div className="public-card-details">
+              {detailRows}
+              {socialLinks.length > 0 && (
+                <div className="public-social-row">
+                  <span className="public-detail-label">Social</span>
+                  <div className="public-social-icons" role="list">
+                    {socialLinks.map((link) => (
+                      <a
+                        key={link.network}
+                        className="public-social-icon"
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={link.label}
+                        title={link.label}
+                        role="listitem"
+                      >
+                        <SocialIcon network={link.network} />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             {inviterLabel && (
               <p style={{ textAlign: 'center', fontSize: '0.8rem', opacity: 0.95, margin: '10px 0' }}>
                 Invited to Kappa Card by{' '}

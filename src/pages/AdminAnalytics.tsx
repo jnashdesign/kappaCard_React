@@ -275,7 +275,11 @@ export default function AdminAnalytics({ users, invites, deletions }: Props) {
             </strong>
             <span className="muted">
               Score {score} · logins {user.stats.logins} · invites {invitesCreated} ·
-              card DL {user.stats.cardImageDownloads} · views {user.stats.cardViews} · contacts{' '}
+              card DL {user.stats.cardImageDownloads} · views {user.stats.cardViews}
+              {user.stats.cardViews > 0
+                ? ` (qr ${user.stats.cardViewsQr} / direct ${user.stats.cardViewsDirect})`
+                : ''}{' '}
+              · contacts{' '}
               {user.stats.contactDownloads}
             </span>
           </div>

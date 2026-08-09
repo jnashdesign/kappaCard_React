@@ -1,4 +1,6 @@
 import { profilePhotoBlob } from './storage';
+import { publicCardUrl } from './cardUrl';
+import { socialProfileUrl } from './social';
 import type { UserProfile } from '../types';
 
 type InviterFields = Pick<
@@ -166,21 +168,33 @@ export function buildVCard(user: VCardUser, photoBase64?: string | null): string
 
   const socials = user.socialMedia;
   if (socials?.linkedin) {
-    lines.push(`URL;TYPE=LinkedIn:https://www.linkedin.com/in/${escapeVCard(socials.linkedin)}`);
+    const href = socialProfileUrl('linkedin', socials.linkedin);
+    if (href) lines.push(`URL;TYPE=LinkedIn:${escapeVCard(href)}`);
   }
   if (socials?.x) {
-    lines.push(`URL;TYPE=X:https://x.com/${escapeVCard(socials.x)}`);
+    const href = socialProfileUrl('x', socials.x);
+    if (href) lines.push(`URL;TYPE=X:${escapeVCard(href)}`);
   }
   if (socials?.instagram) {
-    lines.push(`URL;TYPE=Instagram:https://www.instagram.com/${escapeVCard(socials.instagram)}`);
+    const href = socialProfileUrl('instagram', socials.instagram);
+    if (href) lines.push(`URL;TYPE=Instagram:${escapeVCard(href)}`);
   }
   if (socials?.snapchat) {
-    lines.push(`URL;TYPE=Snapchat:https://www.snapchat.com/add/${escapeVCard(socials.snapchat)}`);
+    const href = socialProfileUrl('snapchat', socials.snapchat);
+    if (href) lines.push(`URL;TYPE=Snapchat:${escapeVCard(href)}`);
+  }
+  if (socials?.youtube) {
+    const href = socialProfileUrl('youtube', socials.youtube);
+    if (href) lines.push(`URL;TYPE=YouTube:${escapeVCard(href)}`);
+  }
+  if (socials?.tiktok) {
+    const href = socialProfileUrl('tiktok', socials.tiktok);
+    if (href) lines.push(`URL;TYPE=TikTok:${escapeVCard(href)}`);
   }
 
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'https://mykappacard.com';
-  lines.push(`URL:${origin}/card/${encodeURIComponent(user.username)}`);
+  lines.push(`URL:${publicCardUrl(origin, user.username)}`);
   lines.push('END:VCARD');
 
   return lines.filter(Boolean).join('\r\n');
