@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  inviteMailtoHref,
+  inviteSignupUrl,
+  inviteSmsHref,
+} from '../lib/inviteShare';
+import {
   canUseCardFeatures,
   createAdminShareInvite,
   createInviteForUser,
@@ -12,11 +17,46 @@ import {
   setInviteActive,
 } from '../lib/users';
 import type { InviteRecord } from '../types';
+import './InvitesPage.css';
 
 function inviteStatus(invite: InviteRecord): 'active' | 'used' | 'disabled' {
   if (!invite.multiUse && invite.usedBy) return 'used';
   if (!invite.active) return 'disabled';
   return 'active';
+}
+
+function InviteShareButtons({
+  code,
+  inviterName,
+  onCopied,
+}: {
+  code: string;
+  inviterName?: string;
+  onCopied: () => void;
+}) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const url = inviteSignupUrl(origin, code);
+  const mailto = inviteMailtoHref(code, url, inviterName);
+  const sms = inviteSmsHref(code, url, inviterName);
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(url);
+    onCopied();
+  }
+
+  return (
+    <div className="invite-share-actions">
+      <button type="button" className="secondary" onClick={() => void copyLink()}>
+        Copy link
+      </button>
+      <a className="button secondary" href={mailto}>
+        Email
+      </a>
+      <a className="button secondary" href={sms}>
+        Text
+      </a>
+    </div>
+  );
 }
 
 export default function InvitesPage() {
@@ -98,12 +138,6 @@ export default function InvitesPage() {
     }
   }
 
-  async function copyLink(code: string) {
-    const url = `${window.location.origin}/signup?invite=${code}`;
-    await navigator.clipboard.writeText(url);
-    setMessage('Invite link copied.');
-  }
-
   async function onDisable(invite: InviteRecord) {
     if (!profile) return;
     setTogglingId(invite.id);
@@ -157,13 +191,15 @@ export default function InvitesPage() {
   }
 
   return (
-    <section className="stack">
+    <section className="stack invites-page">
       <div>
         <h1>Invites</h1>
         <p className="muted">
           Every new member is tied to the brother who invited them. Use one-time codes for
           individuals
           {profile.admin ? ', or your chapter share code when inviting a whole group' : ''}.
+          Share with <strong>Email</strong> or <strong>Text</strong> to open your phone&apos;s
+          composer with the signup link filled in.
         </p>
       </div>
 
@@ -199,14 +235,12 @@ export default function InvitesPage() {
                   ? ` · last ${new Date(shareInvite.lastUsedAt).toLocaleString()}`
                   : ''}
               </span>
-              <div className="row">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => void copyLink(shareInvite.code)}
-                >
-                  Copy signup link
-                </button>
+              <InviteShareButtons
+                code={shareInvite.code}
+                inviterName={profile.name}
+                onCopied={() => setMessage('Invite link copied.')}
+              />
+              <div className="row invite-manage-actions">
                 <button
                   type="button"
                   className="secondary"
@@ -293,23 +327,23 @@ export default function InvitesPage() {
                 <span className="muted">Redeemed {new Date(invite.usedAt).toLocaleString()}</span>
               )}
               {status === 'active' && (
-                <div className="row">
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void copyLink(invite.code)}
-                  >
-                    Copy signup link
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={togglingId === invite.id}
-                    onClick={() => void onDisable(invite)}
-                  >
-                    {togglingId === invite.id ? 'Disabling…' : 'Disable'}
-                  </button>
-                </div>
+                <>
+                  <InviteShareButtons
+                    code={invite.code}
+                    inviterName={profile.name}
+                    onCopied={() => setMessage('Invite link copied.')}
+                  />
+                  <div className="row invite-manage-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={togglingId === invite.id}
+                      onClick={() => void onDisable(invite)}
+                    >
+                      {togglingId === invite.id ? 'Disabling…' : 'Disable'}
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           );

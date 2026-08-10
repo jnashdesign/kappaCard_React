@@ -364,3 +364,9 @@ Deploys rules + composite index `viewerId` ASC + `timestamp` DESC (needed for Pe
 - List load merges legacy viewer encounters into Brothers. Nav is a single **Brothers** link. `/collected` and `/met` redirect.
 - Libs: [`src/lib/brothers.ts`](src/lib/brothers.ts); docs updated in ARCHITECTURE*.md / README.
 
+## Session: Invite Email / Text share (2026-08-09)
+
+- On My Invites, active one-time codes and the chapter share code offer **Copy link**, **Email**, and **Text**.
+- Email/SMS open the device composers via `mailto:` / `sms:` with a prefilled signup URL (`/signup?invite=CODE`) — no backend mail/SMS provider.
+- Helpers in [`src/lib/inviteShare.ts`](src/lib/inviteShare.ts).
+

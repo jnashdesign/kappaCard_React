@@ -1,0 +1,16 @@
+.invites-page .invite-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.invites-page .invite-share-actions .button,
+.invites-page .invite-share-actions button {
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.invites-page .invite-manage-actions {
+  gap: 0.5rem;
+}
