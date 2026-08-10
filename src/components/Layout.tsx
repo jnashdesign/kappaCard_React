@@ -74,12 +74,11 @@ export default function Layout() {
               <NavLink to="/my-card" onClick={closeMenu}>
                 My Card
               </NavLink>
-              <NavLink to="/collected" onClick={closeMenu}>
-                Collected
+
+              <NavLink to="/brothers" onClick={closeMenu}>
+                Brothers
               </NavLink>
-              <NavLink to="/met" onClick={closeMenu}>
-                People I&apos;ve Met
-              </NavLink>
+
               {profile.username ? (
                 <NavLink to={`/card/${profile.username}`} onClick={closeMenu}>
                   MyProfile

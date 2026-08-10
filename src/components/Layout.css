@@ -175,7 +175,7 @@
 
   .nav.is-open button.primary {
     margin-top: 10px;
-}
+  }
 
   .nav a,
   .nav .linkish {
@@ -183,13 +183,12 @@
     padding: 0.8rem 0.85rem 0.8rem 2.1rem;
     margin: 0 -10px;
     border-bottom: 1px solid color-mix(in srgb, var(--crimson) 16%, transparent) !important;
-    ;
   }
 
   .nav a.active {
     text-decoration: none;
     background-color: white;
-    color: #450909;;
+    color: #450909;
     border-color: white;
   }
 
@@ -201,7 +200,7 @@
     top: calc(50% + 2px);
     width: 0.8rem;
     height: 0.8rem;
-    background: #450909;;
+    background: #450909;
     transform: translateY(-0.55rem) rotate(45deg);
   }
 

@@ -130,8 +130,8 @@ export interface AccountDeletion {
   deletedAt: string;
 }
 
-/** One-sided bookmark of another brother's public card (from Save to Contacts). */
-export interface CollectedCard {
+/** Person-centric brother row (`users/{uid}/collectedCards/{subjectUid}`). */
+export interface BrotherRecord {
   id: string;
   subjectUserId: string;
   username: string;
@@ -141,13 +141,30 @@ export interface CollectedCard {
   profilePicture?: string;
   occupation?: string;
   currentCity?: string;
-  collectedAt: string;
-  source: 'vcard_download';
+  /** True when this brother was added/updated via a QR scan encounter. */
+  metViaQr: boolean;
+  /** True when Save to Contacts was used for this brother. */
+  savedContact: boolean;
+  lastMetAt?: string;
+  savedContactAt?: string;
+  firstActivityAt: string;
+  lastActivityAt: string;
+  event?: string;
+  location?: string;
+  privateNote?: string;
+  /** @deprecated Prefer savedContactAt / lastActivityAt */
+  collectedAt?: string;
+  /** @deprecated Prefer metViaQr / savedContact flags */
+  source?: 'vcard_download' | string;
 }
+
+/** @deprecated Use BrotherRecord — kept for transitional imports */
+export type CollectedCard = BrotherRecord;
 
 /**
  * One member (or anonymous browser session) encountered another member's Kappa Card.
- * Distinct from analytics `stats.cardViews*` — only strong signals (e.g. QR) create these.
+ * Used for anonymous QR → claim-on-login; authenticated QR upserts Brothers directly.
+ * Distinct from analytics `stats.cardViews*`.
  */
 export type EncounterSource = 'qr' | 'direct' | (string & {});
 

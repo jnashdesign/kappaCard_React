@@ -43,16 +43,17 @@ Firebase project: **`kappacards-07212025`** (live: [mykappacard.com](https://myk
 |------|----------|
 | Routes | [`src/App.tsx`](src/App.tsx) |
 | Auth state | [`src/contexts/AuthContext.tsx`](src/contexts/AuthContext.tsx) |
-| Domain libs | [`src/lib/`](src/lib/) (`users`, `vcard`, `encounters`, `privacy`, …) |
+| Domain libs | [`src/lib/`](src/lib/) (`users`, `vcard`, `brothers`, `encounters`, `privacy`, …) |
 | Pages | [`src/pages/`](src/pages/) |
 | Types | [`src/types/index.ts`](src/types/index.ts) |
 | Rules | [`firestore.rules`](firestore.rules), [`storage.rules`](storage.rules) |
 | Functions | [`functions/`](functions/) |
 
-**Primary authenticated surfaces:** My Card, Profile, Collected, People I've Met (`/met`), Invites, Admin.  
+**Primary authenticated surfaces:** My Card, Profile, Brothers (`/brothers`), Invites, Admin.  
 **Primary public surfaces:** Landing, Pricing, Request invite, Signup/Login, `/card/:username`.
 
-Legacy `/kard/:username` redirects to `/card/:username` and preserves query params (including `?via=qr`).
+Legacy `/kard/:username` redirects to `/card/:username` and preserves query params (including `?via=qr`).  
+Legacy `/collected` and `/met` redirect to `/brothers`.
 
 ---
 
@@ -72,16 +73,16 @@ Client profile documents are readable publicly for the live card page; **optiona
 
 **Diagrams:** [Firestorestore overview](ARCHITECTURE_DIAGRAMS.md#firestore-overview) · [Collection paths](ARCHITECTURE_DIAGRAMS.md#collection-paths)
 
-Firestorestore is the system of record. Top-level collections mirror product domains (`users`, `invites`, `encounters`, …). Subcollections are used where ownership is clear (`users/{uid}/collectedCards`).
+Firestorestore is the system of record. Top-level collections mirror product domains (`users`, `invites`, `encounters`, …). Subcollections are used where ownership is clear (`users/{uid}/collectedCards` — the Brothers list).
 
 Security rules favor:
 
 - Public **reads** where the live card needs them.
-- Strict **creates/updates** (invite requests, encounters, engagement counter bumps).
-- Owner-only private subcollections (collected cards).
+- Strict **creates/updates** (invite requests, anonymous encounters, engagement counter bumps).
+- Owner-only private subcollections (Brothers / `collectedCards`).
 - Admin-only or Admin-SDK-only sensitive collections (`payments`, churn logs read path).
 
-Indexes: [`firestore.indexes.json`](firestore.indexes.json) (notably `encounters`: `viewerId` + `timestamp` for People I've Met).
+Indexes: [`firestore.indexes.json`](firestore.indexes.json) (notably `encounters`: `viewerId` + `timestamp` for legacy merge / claim backfill).
 
 ---
 
@@ -122,31 +123,34 @@ Usernames are public slugs; Firebase Auth uid remains the immutable key. Renames
 | Add to Contacts | Client builds vCard 3.0 with embedded JPEG photo when possible ([`src/lib/vcard.ts`](src/lib/vcard.ts)) |
 | QR auto-download experiment | On QR visits only, one automatic vCard attempt; button always remains |
 
-Profile **views** increment `users.stats.cardViews` (and `cardViewsQr` / `cardViewsDirect`). That is analytics, not an Encounter.
+Profile **views** increment `users.stats.cardViews` (and `cardViewsQr` / `cardViewsDirect`). That is analytics, not a Brothers upsert.
 
 ---
 
-## 9. Encounters and People I've Met
+## 9. Brothers list
 
-**Diagrams:** [Encounters vs analytics](ARCHITECTURE_DIAGRAMS.md#encounters-vs-profile-analytics) · [Encounter entity](ARCHITECTURE_DIAGRAMS.md#encounter-entity)
+**Diagrams:** [Brothers upsert flow](ARCHITECTURE_DIAGRAMS.md#brothers-upsert-flow) · [Encounters vs analytics](ARCHITECTURE_DIAGRAMS.md#encounters-vs-profile-analytics)
 
-An **Encounter** records that someone met a brother’s card (strong signal, currently QR). Implementation: [`src/lib/encounters.ts`](src/lib/encounters.ts).
+**Brothers** is one person-centric list (`/brothers`, detail `/brothers/:subjectUserId`). Storage path remains `users/{viewer}/collectedCards/{subject}` ([`src/lib/brothers.ts`](src/lib/brothers.ts)).
 
-| Rule | Behavior |
-|------|----------|
-| Create | QR visit after profile + auth settle; skip self, bots, 15‑minute dedupe |
-| Authenticated | `viewerId = auth.uid` |
-| Anonymous | `anonymousSessionId` only (opaque `localStorage` id); claim on login |
-| Private context | `event`, `location`, `privateNote` on the encounter — never on the public card |
-| UI | `/met` list (date-grouped) and `/met/:id` detail for the scanner |
+| Action | Effect |
+|--------|--------|
+| QR visit while signed in | Upsert brother; `metViaQr`; bump `lastMetAt` / `lastActivityAt` |
+| Save to Contacts while signed in | Upsert same row; `savedContact`; bump `savedContactAt` / `lastActivityAt` |
+| QR while anonymous | Write short-lived `encounters` doc; on login claim → upsert Brothers |
+| Notes | `event`, `location`, `privateNote` on the brother row (owner-only) |
 
-Failures to write an encounter are logged and must not break the public card or vCard UX.
+List shows badges (**Met via QR** / **Saved contact**), sorted by `lastActivityAt`. Opening Brothers also merges any legacy viewer `encounters` into brother rows.
 
 ---
 
-## 10. Collected brothers
+## 10. Encounters (anonymous claim only)
 
-Separate from Encounters: when a **signed-in** member saves another brother’s contact, a thin public snapshot is upserted under `users/{collector}/collectedCards/{subject}`. UI: `/collected`. This is a bookmark of cards you saved, not a meeting log.
+**Diagram:** [Encounter entity](ARCHITECTURE_DIAGRAMS.md#encounter-entity)
+
+Top-level `encounters` are **not** the primary Brothers UI store. Authenticated QR upserts Brothers directly. Anonymous QR still creates an encounter for claim-on-login; claim upserts Brothers then attaches `viewerId`.
+
+Failures must not break the public card or vCard UX.
 
 ---
 
@@ -179,10 +183,10 @@ Account deletion writes an `accountDeletions` row for churn reporting before wip
 | Surface | Policy sketch |
 |---------|----------------|
 | `users` | Public read; owner update (no self-escalation of admin/tier); limited public engagement bumps |
-| `collectedCards` | Owner-only |
+| `collectedCards` | Owner-only (Brothers list + private notes) |
 | `invites` | Public read; create/update constrained by owner / redeemer / admin |
 | `inviteRequests` | Public create (pending); admin manage |
-| `encounters` | Create auth or anon shapes; read/update/delete for viewer (or admin); no owner client read in v1 |
+| `encounters` | Anon create for QR claim; read/update for viewer (or admin); no owner client read in v1 |
 | `payments` | No client access |
 | Storage profile media | Authenticated upload to own prefix; public read for card display |
 

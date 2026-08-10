@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getEncounter, updateEncounterContext } from '../lib/encounters';
+import { getBrother, updateBrotherContext } from '../lib/brothers';
 import { isUsablePhotoUrl } from '../lib/photos';
 import { toPublicProfile } from '../lib/privacy';
 import { getUserById } from '../lib/users';
-import type { Encounter, UserProfile } from '../types';
-import './MetDetailPage.css';
+import type { BrotherRecord, UserProfile } from '../types';
+import './BrotherDetailPage.css';
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,9 +15,10 @@ function initialsFromName(name: string): string {
   return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
 }
 
-function formatMetAt(iso: string): string {
+function formatWhen(iso?: string): string {
+  if (!iso) return '—';
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString(undefined, {
     weekday: 'short',
     month: 'short',
@@ -28,11 +29,11 @@ function formatMetAt(iso: string): string {
   });
 }
 
-export default function MetDetailPage() {
-  const { encounterId = '' } = useParams();
+export default function BrotherDetailPage() {
+  const { subjectUserId = '' } = useParams();
   const { profile: viewer } = useAuth();
-  const [encounter, setEncounter] = useState<Encounter | null>(null);
-  const [brother, setBrother] = useState<UserProfile | null>(null);
+  const [record, setRecord] = useState<BrotherRecord | null>(null);
+  const [live, setLive] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -43,7 +44,7 @@ export default function MetDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!viewer || !encounterId) return;
+    if (!viewer || !subjectUserId) return;
     let active = true;
     setLoading(true);
     setError(null);
@@ -51,26 +52,26 @@ export default function MetDetailPage() {
 
     void (async () => {
       try {
-        const row = await getEncounter(encounterId);
+        const row = await getBrother(viewer.id, subjectUserId);
         if (!active) return;
-        if (!row || row.viewerId !== viewer.id) {
-          setError('Encounter not found.');
-          setEncounter(null);
-          setBrother(null);
+        if (!row) {
+          setError('Brother not found.');
+          setRecord(null);
+          setLive(null);
           return;
         }
 
-        setEncounter(row);
+        setRecord(row);
         setEvent(row.event ?? '');
         setLocation(row.location ?? '');
         setPrivateNote(row.privateNote ?? '');
 
-        const owner = await getUserById(row.ownerId);
+        const owner = await getUserById(row.subjectUserId);
         if (!active) return;
-        setBrother(owner ? toPublicProfile(owner) : null);
+        setLive(owner ? toPublicProfile(owner) : null);
       } catch (err) {
         if (active) {
-          setError(err instanceof Error ? err.message : 'Could not load encounter.');
+          setError(err instanceof Error ? err.message : 'Could not load brother.');
         }
       } finally {
         if (active) setLoading(false);
@@ -80,32 +81,31 @@ export default function MetDetailPage() {
     return () => {
       active = false;
     };
-  }, [viewer?.id, encounterId]);
+  }, [viewer?.id, subjectUserId]);
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
-    if (!encounter) return;
+    if (!viewer || !record) return;
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      await updateEncounterContext(encounter.id, {
+      await updateBrotherContext(viewer.id, record.subjectUserId, {
         event,
         location,
         privateNote,
       });
-      setEncounter((prev) =>
+      setRecord((prev) =>
         prev
           ? {
               ...prev,
               event: event.trim() || undefined,
               location: location.trim() || undefined,
               privateNote: privateNote.trim() || undefined,
-              updatedAt: new Date().toISOString(),
             }
           : prev
       );
-      setMessage('Meeting notes saved. Only you can see these.');
+      setMessage('Notes saved. Only you can see these.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save notes.');
     } finally {
@@ -115,68 +115,86 @@ export default function MetDetailPage() {
 
   if (!viewer) return <div className="panel">Loading…</div>;
   if (loading) return <div className="panel">Loading…</div>;
-  if (error && !encounter) {
+  if (error && !record) {
     return (
-      <section className="met-detail stack">
-        <Link to="/met" className="met-back">
-          ← People I&apos;ve Met
+      <section className="brother-detail stack">
+        <Link to="/brothers" className="brother-back">
+          ← Brothers
         </Link>
         <p className="error">{error}</p>
       </section>
     );
   }
-  if (!encounter) return null;
+  if (!record) return null;
 
-  const name = brother?.name || 'Brother';
-  const showPhoto = isUsablePhotoUrl(brother?.profilePicture) && !photoFailed;
+  const name = live?.name || record.name || 'Brother';
+  const photo = live?.profilePicture || record.profilePicture;
+  const showPhoto = isUsablePhotoUrl(photo) && !photoFailed;
+  const username = live?.username || record.username;
 
   return (
-    <section className="met-detail stack">
-      <Link to="/met" className="met-back">
-        ← People I&apos;ve Met
+    <section className="brother-detail stack">
+      <Link to="/brothers" className="brother-back">
+        ← Brothers
       </Link>
 
-      <article className="panel met-detail-hero">
-        <div className="met-detail-identity">
-          <div className="met-detail-avatar" aria-hidden>
+      <article className="panel brother-detail-hero">
+        <div className="brother-detail-identity">
+          <div className="brother-detail-avatar" aria-hidden>
             {showPhoto ? (
-              <img
-                src={brother!.profilePicture}
-                alt=""
-                onError={() => setPhotoFailed(true)}
-              />
+              <img src={photo} alt="" onError={() => setPhotoFailed(true)} />
             ) : (
               <span>{initialsFromName(name)}</span>
             )}
           </div>
           <div>
-            <h1 className="met-detail-name">{name}</h1>
-            <p className="met-detail-meta">
-              {[brother?.chapter, brother?.initiationYear ? String(brother.initiationYear) : null]
+            <h1 className="brother-detail-name">{name}</h1>
+            <p className="brother-detail-meta">
+              {[
+                live?.chapter || record.chapter,
+                String(live?.initiationYear || record.initiationYear || ''),
+              ]
                 .filter(Boolean)
                 .join(' · ') || 'Kappa Card member'}
             </p>
-            {brother?.occupation && <p className="met-detail-sub">{brother.occupation}</p>}
-            {brother?.currentEmployer && (
-              <p className="met-detail-sub">{brother.currentEmployer}</p>
+            {(live?.occupation || record.occupation) && (
+              <p className="brother-detail-sub">{live?.occupation || record.occupation}</p>
             )}
-            {brother?.currentCity && <p className="met-detail-sub">{brother.currentCity}</p>}
+            {live?.currentEmployer && (
+              <p className="brother-detail-sub">{live.currentEmployer}</p>
+            )}
+            {(live?.currentCity || record.currentCity) && (
+              <p className="brother-detail-sub">{live?.currentCity || record.currentCity}</p>
+            )}
           </div>
         </div>
 
-        <dl className="met-detail-facts">
+        <p className="brother-detail-badges">
+          {record.metViaQr && <span className="brother-badge">Met via QR</span>}
+          {record.savedContact && <span className="brother-badge">Saved contact</span>}
+        </p>
+
+        <dl className="brother-detail-facts">
+          {record.lastMetAt && (
+            <div>
+              <dt>Last met</dt>
+              <dd>{formatWhen(record.lastMetAt)}</dd>
+            </div>
+          )}
+          {record.savedContactAt && (
+            <div>
+              <dt>Saved contact</dt>
+              <dd>{formatWhen(record.savedContactAt)}</dd>
+            </div>
+          )}
           <div>
-            <dt>Met</dt>
-            <dd>{formatMetAt(encounter.timestamp)}</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>{encounter.source === 'qr' ? 'QR scan' : encounter.source}</dd>
+            <dt>Updated</dt>
+            <dd>{formatWhen(record.lastActivityAt)}</dd>
           </div>
         </dl>
 
-        {brother?.username ? (
-          <Link className="button met-detail-card-link" to={`/card/${brother.username}`}>
+        {username ? (
+          <Link className="button brother-detail-card-link" to={`/card/${username}`}>
             View full Kappa Card
           </Link>
         ) : (
@@ -186,11 +204,11 @@ export default function MetDetailPage() {
         )}
       </article>
 
-      <form className="panel stack met-detail-form" onSubmit={(e) => void onSave(e)}>
+      <form className="panel stack brother-detail-form" onSubmit={(e) => void onSave(e)}>
         <div>
-          <h2>Your meeting notes</h2>
-          <p className="muted met-privacy-note">
-            Event, place, and private notes stay on <strong>your</strong> encounter record. They
+          <h2>Your notes</h2>
+          <p className="muted brother-privacy-note">
+            Event, place, and private notes stay on <strong>your</strong> Brothers record. They
             never appear on his public Kappa Card.
           </p>
         </div>

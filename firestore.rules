@@ -35,7 +35,7 @@ service cloud.firestore {
         || publicEngagementOnly();
       allow delete: if isOwner(userId) || isAdmin();
 
-      // Brothers whose cards this member saved via Save to Contacts
+      // Brothers whose cards this member met via QR or saved to Contacts
       match /collectedCards/{cardId} {
         allow read, write: if isOwner(userId);
       }

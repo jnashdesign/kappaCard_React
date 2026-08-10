@@ -232,6 +232,7 @@ export default function PublicCardPage() {
       ownerId: user.id,
       viewerId: viewer?.id ?? null,
       source: 'qr',
+      subject: user,
     }).catch(() => {
       // Logged inside recordQrEncounter; swallow so UI stays unaffected
     });
@@ -264,9 +265,9 @@ export default function PublicCardPage() {
         if (viewer && viewer.id !== subject.id) {
           try {
             await saveCollectedCard(viewer.id, subject);
-            collectedNote = ' Also saved to your Collected list.';
+            collectedNote = ' Also saved to Brothers.';
           } catch {
-            collectedNote = ' Could not add to Collected — try again while signed in.';
+            collectedNote = ' Could not add to Brothers — try again while signed in.';
           }
         }
 
@@ -362,6 +363,7 @@ export default function PublicCardPage() {
 
   const socialLinks = publicSocialLinks(publicUser.socialMedia);
   const hasContactDetails = detailRows.length > 0 || socialLinks.length > 0;
+  const isOwnProfile = Boolean(viewer && viewer.id === user.id);
 
   return (
     <section className="public-card-page" data-visit-source={visitSource}>
@@ -371,6 +373,18 @@ export default function PublicCardPage() {
       >
         {bgUrl && (
           <img src={bgUrl} alt="" hidden onError={() => setBgFailed(true)} />
+        )}
+        {isOwnProfile && (
+          <div className="public-card-owner-toolbar" aria-label="Your profile actions">
+            <Link
+              className="public-card-owner-tool"
+              to="/profile"
+              aria-label="Edit my info"
+              title="Edit"
+            >
+              <PencilIcon />
+            </Link>
+          </div>
         )}
         <div className="public-card-hero-body">
 
@@ -465,17 +479,28 @@ export default function PublicCardPage() {
         {!viewer && (
           <p className="muted public-card-footnote">
             Sign in to keep this brother in your{' '}
-            <Link to="/login">Collected</Link> list after you save the contact.
+            <Link to="/login">Brothers</Link> list after you save the contact.
             {' '}Have an invite? <Link to="/signup">Create your own Kappa Card</Link>
           </p>
         )}
         {viewer && viewer.id !== user.id && (
           <p className="muted public-card-footnote">
             Saving to Contacts also adds him to your{' '}
-            <Link to="/collected">Collected</Link> list.
+            <Link to="/brothers">Brothers</Link> list.
           </p>
         )}
       </div>
     </section>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden focusable="false">
+      <path
+        fill="currentColor"
+        d="M4.5 19.5a1 1 0 0 1-1-1.05l.22-3.9 9.9-9.9a2.5 2.5 0 0 1 3.54 0l1.69 1.69a2.5 2.5 0 0 1 0 3.54l-9.9 9.9-3.9.22a1 1 0 0 1-.55-.15zm2.07-3.4.12 2.14 2.14-.12 8.34-8.34a.5.5 0 0 0 0-.71l-1.69-1.69a.5.5 0 0 0-.71 0L6.57 16.1z"
+      />
+    </svg>
   );
 }

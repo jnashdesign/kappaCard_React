@@ -1,32 +1,32 @@
-.met-detail {
+.brother-detail {
   max-width: 640px;
   margin: 0 auto;
   padding-bottom: 1.75rem;
 }
 
-.met-back {
+.brother-back {
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
   width: fit-content;
 }
 
-.met-back:hover {
+.brother-back:hover {
   text-decoration: underline;
 }
 
-.met-detail-hero {
+.brother-detail-hero {
   display: grid;
   gap: 1.15rem;
 }
 
-.met-detail-identity {
+.brother-detail-identity {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
 }
 
-.met-detail-avatar {
+.brother-detail-avatar {
   width: 88px;
   height: 88px;
   border-radius: 50%;
@@ -39,80 +39,87 @@
   color: var(--crimson-deep);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
 }
 
-.met-detail-avatar img {
+.brother-detail-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.met-detail-name {
-  margin: 0;
-  font-size: clamp(1.45rem, 5vw, 1.85rem);
+.brother-detail-name {
+  margin: 0 0 0.25rem;
+  font-size: 1.55rem;
   line-height: 1.15;
-  color: var(--crimson-deep);
 }
 
-.met-detail-meta {
-  margin: 0.25rem 0 0;
-  font-size: 1rem;
+.brother-detail-meta,
+.brother-detail-sub {
+  margin: 0.15rem 0 0;
   color: var(--muted);
 }
 
-.met-detail-sub {
-  margin: 0.2rem 0 0;
-  font-size: 0.92rem;
-  color: var(--muted);
-}
-
-.met-detail-facts {
+.brother-detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin: 0;
+}
+
+.brother-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--crimson-deep);
+  background: color-mix(in srgb, var(--crimson) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--crimson) 18%, transparent);
+}
+
+.brother-detail-facts {
   display: grid;
   gap: 0.65rem;
-  padding: 0.85rem 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--crimson) 10%, transparent);
+  margin: 0;
 }
 
-.met-detail-facts > div {
+.brother-detail-facts div {
   display: grid;
   gap: 0.15rem;
 }
 
-.met-detail-facts dt {
-  font-size: 0.7rem;
+.brother-detail-facts dt {
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.met-detail-facts dd {
+.brother-detail-facts dd {
   margin: 0;
-  font-size: 1rem;
   font-weight: 600;
-  color: var(--ink);
 }
 
-.met-detail-card-link {
+.brother-detail-card-link {
   width: 100%;
   text-align: center;
   box-sizing: border-box;
 }
 
-.met-detail-form h2 {
+.brother-detail-form h2 {
   margin: 0 0 0.35rem;
-  font-size: 1.2rem;
-  color: var(--crimson-deep);
 }
 
-.met-privacy-note {
+.brother-privacy-note {
   margin: 0;
   font-size: 0.9rem;
 }
 
-.met-detail-form label {
+.brother-detail-form label {
   display: grid;
   gap: 0.35rem;
   font-size: 0.88rem;
@@ -120,7 +127,7 @@
   color: var(--muted);
 }
 
-.met-detail-form textarea {
+.brother-detail-form textarea {
   width: 100%;
   box-sizing: border-box;
   resize: vertical;
@@ -133,12 +140,12 @@
   color: var(--ink);
 }
 
-.met-detail-form button[type='submit'] {
+.brother-detail-form button[type='submit'] {
   width: 100%;
 }
 
 @media (min-width: 640px) {
-  .met-detail-avatar {
+  .brother-detail-avatar {
     width: 104px;
     height: 104px;
   }

@@ -121,7 +121,7 @@ Quick reminders:
 
 - Vite + React + TypeScript SPA/PWA
 - Firebase Auth + Firestore + Storage + Cloud Functions
-- Firestore collections: `users` (+ `collectedCards` subcollection), `usernames`, `invites`, `inviteRequests`, `encounters`, `accountDeletions`, `payments`
+- Firestore collections: `users` (+ `collectedCards` Brothers subcollection), `usernames`, `invites`, `inviteRequests`, `encounters` (anon QR claim), `accountDeletions`, `payments`
 - Public Card page builds a vCard download for Add to Contacts
 - My Card page renders branded card + QR and exports PNG via `html-to-image`
 - Seed scripts use Firebase Admin SDK (`scripts/seed-admin.mjs`, `scripts/seed-user.mjs`)
@@ -334,4 +334,33 @@ Deploys rules + composite index `viewerId` ASC + `timestamp` DESC (needed for Pe
 - Added [`ARCHITECTURE_DIAGRAMS.md`](ARCHITECTURE_DIAGRAMS.md): Mermaid diagrams with stable heading anchors.
 - Each tech section links to the matching diagram anchor (e.g. Encounters → `#encounters-vs-profile-analytics`).
 - Removed the large embedded Data models / mermaid block from this session log; README points at the new pair.
+
+## Session: My Card desktop landscape (2026-08-09)
+
+- `/my-card` keeps the portrait card on mobile (≤720px).
+- From 721px up, the card is landscape (`16 / 9`), full content-container width: identity left, QR right, inviter strip along the bottom.
+- PNG download still forces the portrait layout via a temporary `card-frame--export` class so the shareable image stays phone-friendly.
+
+## Session: Owner edit on public profile (2026-08-09)
+
+- On `/card/{username}`, when the signed-in viewer is the profile owner, show a pencil icon (same style as My Card tools) linking to `/profile`.
+- Other visitors do not see the control.
+
+## Ops: Encounter list index (2026-08-09)
+
+- Deployed `encounters` composite index (`viewerId` ASC + `timestamp` DESC) via `firebase deploy --only firestore:indexes --project kappacards-07212025`.
+- Required by People I've Met (`listMyEncounters`). Index may take a few minutes to finish building in the console before the page loads cleanly.
+
+## Session: Brothers nav group (2026-08-09)
+
+- Grouped **Collected** and **People I've Met** under nav label **Brothers** (desktop dropdown; mobile section heading).
+- Chosen over “Network/Contacts” — fraternity-native and short; child labels keep the list meanings clear.
+
+## Session: Unify Brothers list (2026-08-09)
+
+- Merged Collected + People I've Met into one person-centric **Brothers** list at `/brothers` (+ `/brothers/:subjectUserId`).
+- Storage still `users/{uid}/collectedCards/{subjectUid}` with `metViaQr`, `savedContact`, activity timestamps, and private notes.
+- Authenticated QR upserts Brothers; anonymous QR still uses `encounters` for claim-on-login, then upserts Brothers.
+- List load merges legacy viewer encounters into Brothers. Nav is a single **Brothers** link. `/collected` and `/met` redirect.
+- Libs: [`src/lib/brothers.ts`](src/lib/brothers.ts); docs updated in ARCHITECTURE*.md / README.
 

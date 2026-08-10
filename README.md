@@ -10,6 +10,7 @@ Sibling of `kappacard` (legacy React Native / Expo app) at:
 
 - Public live Card pages at `/card/{username}`
 - Scan QR → open page → **Add to Contacts** (`.vcf`)
+- **Brothers** list: QR meets and saved contacts in one place (`/brothers`)
 - Invite-gated signup for accountability
 - Tiers: `free` | `basic` | `premium`
 - Basic unlocks Card image generation, invites, and connection requests

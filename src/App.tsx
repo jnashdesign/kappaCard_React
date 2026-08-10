@@ -4,13 +4,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { publicCardPathWithSearch } from './lib/cardUrl';
 import AdminPage from './pages/AdminPage';
-import CollectedPage from './pages/CollectedPage';
+import BrotherDetailPage from './pages/BrotherDetailPage';
+import BrothersPage from './pages/BrothersPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import InvitesPage from './pages/InvitesPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
-import MetDetailPage from './pages/MetDetailPage';
-import MetPage from './pages/MetPage';
+import MetEncounterRedirect from './pages/MetEncounterRedirect';
 import MyCardPage from './pages/MyCardPage';
 import PricingPage from './pages/PricingPage';
 import ProfilePage from './pages/ProfilePage';
@@ -70,26 +70,28 @@ export default function App() {
               }
             />
             <Route
-              path="collected"
+              path="brothers"
               element={
                 <ProtectedRoute>
-                  <CollectedPage />
+                  <BrothersPage />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="met"
+              path="brothers/:subjectUserId"
               element={
                 <ProtectedRoute>
-                  <MetPage />
+                  <BrotherDetailPage />
                 </ProtectedRoute>
               }
             />
+            <Route path="collected" element={<Navigate to="/brothers" replace />} />
+            <Route path="met" element={<Navigate to="/brothers" replace />} />
             <Route
               path="met/:encounterId"
               element={
                 <ProtectedRoute>
-                  <MetDetailPage />
+                  <MetEncounterRedirect />
                 </ProtectedRoute>
               }
             />

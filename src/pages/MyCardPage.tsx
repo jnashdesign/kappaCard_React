@@ -98,8 +98,17 @@ export default function MyCardPage() {
     setSaving(true);
     setError(null);
     setMessage(null);
+    const cardEl = cardRef.current;
     try {
-      const photoEl = cardRef.current.querySelector<HTMLImageElement>('img[data-profile-photo="true"]');
+      // Capture the portrait layout even when the desktop preview is landscape.
+      cardEl.classList.add('card-frame--export');
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      const photoEl = cardEl.querySelector<HTMLImageElement>('img[data-profile-photo="true"]');
       let restoreSrc: string | null = null;
       if (photoEl && showPhoto && profile.profilePicturePath) {
         restoreSrc = photoEl.src;
@@ -107,17 +116,17 @@ export default function MyCardPage() {
         await photoEl.decode().catch(() => undefined);
       }
 
-      const restoreBgImage = cardRef.current.style.backgroundImage;
-      const restoreBg = cardRef.current.style.background;
+      const restoreBgImage = cardEl.style.backgroundImage;
+      const restoreBg = cardEl.style.background;
       if (bgUrl && profile.cardBackgroundPath) {
         const dataUrl = await profilePhotoToDataUrl(profile.cardBackgroundPath);
-        cardRef.current.style.background = '';
-        cardRef.current.style.backgroundImage = `${CARD_BACKGROUND_SCRIM}, url("${dataUrl}")`;
-        cardRef.current.style.backgroundSize = 'cover';
-        cardRef.current.style.backgroundPosition = 'center';
+        cardEl.style.background = '';
+        cardEl.style.backgroundImage = `${CARD_BACKGROUND_SCRIM}, url("${dataUrl}")`;
+        cardEl.style.backgroundSize = 'cover';
+        cardEl.style.backgroundPosition = 'center';
       }
 
-      const dataUrl = await toPng(cardRef.current, {
+      const dataUrl = await toPng(cardEl, {
         cacheBust: true,
         pixelRatio: 3,
         backgroundColor: '#6d0e0f',
@@ -126,8 +135,8 @@ export default function MyCardPage() {
       if (photoEl && restoreSrc) {
         photoEl.src = restoreSrc;
       }
-      cardRef.current.style.backgroundImage = restoreBgImage;
-      cardRef.current.style.background = restoreBg;
+      cardEl.style.backgroundImage = restoreBgImage;
+      cardEl.style.background = restoreBg;
 
       const link = document.createElement('a');
       link.download = `kappa-card-${profile.username}.png`;
@@ -138,6 +147,7 @@ export default function MyCardPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save card image.');
     } finally {
+      cardEl.classList.remove('card-frame--export');
       setSaving(false);
     }
   }
@@ -146,12 +156,6 @@ export default function MyCardPage() {
 
   return (
     <section className="stack my-card-page">
-      <div>
-        <h1>My Card</h1>
-        <p className="muted">
-          Download this card once — your QR always stays up to date when your profile changes.
-        </p>
-      </div>
 
       <div className="my-card-stage">
         {/* Outside cardRef so icons are not baked into the downloaded PNG */}
@@ -184,78 +188,33 @@ export default function MyCardPage() {
           </Link>
         </div>
 
-        <div
-          ref={cardRef}
-          className="card-frame"
-          style={{
-            ...surfaceBg,
-            color: '#f7f1e8',
-            padding: '1.25rem 1.25rem 0 1.25rem',
-            display: 'grid',
-            gridTemplateRows: 'auto auto 1fr auto',
-            gap: '0.85rem',
-          }}
-        >
+        <div ref={cardRef} className="card-frame" style={surfaceBg}>
           {bgUrl && (
             <img src={bgUrl} alt="" hidden onError={() => setBgFailed(true)} />
           )}
-          <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+          <div className="card-frame-identity">
             {showPhoto && photoUrl && (
               <img
                 src={photoUrl}
                 alt=""
                 data-profile-photo="true"
+                className="card-frame-photo"
                 onError={() => setPhotoFailed(true)}
-                style={{
-                  width: 125,
-                  height: 125,
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '2px solid rgba(245, 232, 210, 0.85)',
-                  flexShrink: 0,
-                }}
               />
             )}
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: '0.35rem 0 0.15rem', fontSize: '1.45rem', lineHeight: 1.1 }}>
-                {profile.name}
-              </h2>
-              <div style={{ opacity: 0.9, fontSize: '0.92rem' }}>
+              <h2 className="card-frame-name">{profile.name}</h2>
+              <div className="card-frame-meta">
                 {profile.chapter} {profile.initiationYear}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', placeItems: 'center' }}>
+          <div className="card-frame-qr">
             {qrDataUrl ? (
-              <div
-                style={{
-                  marginTop: '20px',
-                  width: 'calc(100% + 10px)',
-                  borderRadius: 16,
-                  background: 'white',
-                  padding: '10px 10px 12px',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <img
-                  src={qrDataUrl}
-                  alt={`QR code for ${qrUrl}`}
-                  style={{ width: '100%', display: 'block', borderRadius: 8 }}
-                />
-                <div
-                  style={{
-                    marginTop: 8,
-                    textAlign: 'center',
-                    fontFamily: 'Libre Baskerville, serif',
-                    letterSpacing: '0.06em',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    color: '#6d0e0f',
-                  }}
-                >
-                  MyKappaCard.com
-                </div>
+              <div className="card-frame-qr-plate">
+                <img src={qrDataUrl} alt={`QR code for ${qrUrl}`} />
+                <div className="card-frame-qr-caption">MyKappaCard.com</div>
               </div>
             ) : (
               <p>Generating QR…</p>
@@ -263,17 +222,7 @@ export default function MyCardPage() {
           </div>
 
           {inviterLabel && (
-            <div
-              style={{
-                fontSize: '0.82rem',
-                opacity: 0.92,
-                padding: '1.25rem',
-                background: 'rgba(0,0,0,0.22)',
-                margin: '40px -1.25rem -10px',
-              }}
-            >
-              Invited by {inviterLabel}
-            </div>
+            <div className="card-frame-inviter">Invited by {inviterLabel}</div>
           )}
         </div>
       </div>

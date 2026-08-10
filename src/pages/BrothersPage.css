@@ -1,18 +1,18 @@
-.collected-page {
+.brothers-page {
   max-width: 640px;
   margin: 0 auto;
 }
 
-.collected-search {
+.brothers-search {
   display: block;
 }
 
-.collected-search input {
+.brothers-search input {
   width: 100%;
   box-sizing: border-box;
 }
 
-.collected-page .visually-hidden {
+.brothers-page .visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -24,7 +24,7 @@
   border: 0;
 }
 
-.collected-list {
+.brothers-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -32,7 +32,7 @@
   gap: 0.75rem;
 }
 
-.collected-row {
+.brothers-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -42,7 +42,7 @@
   border: 1px solid color-mix(in srgb, var(--crimson) 12%, transparent);
 }
 
-.collected-row-main {
+.brothers-row-main {
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -52,11 +52,11 @@
   color: inherit;
 }
 
-.collected-row-main:hover .collected-name {
+.brothers-row-main:hover .brothers-name {
   color: var(--crimson);
 }
 
-.collected-avatar {
+.brothers-avatar {
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -72,45 +72,70 @@
   font-size: 0.95rem;
 }
 
-.collected-avatar img {
+.brothers-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.collected-copy {
+.brothers-copy {
   min-width: 0;
+  flex: 1;
 }
 
-.collected-name {
+.brothers-name {
   margin: 0;
-  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--crimson-deep);
+  font-size: 1.05rem;
 }
 
-.collected-meta,
-.collected-sub,
-.collected-date {
+.brothers-meta,
+.brothers-sub,
+.brothers-date {
   margin: 0.15rem 0 0;
   font-size: 0.88rem;
   color: var(--muted);
 }
 
-.collected-date {
-  font-size: 0.8rem;
+.brothers-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
 }
 
-.collected-remove {
+.brothers-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--crimson-deep);
+  background: color-mix(in srgb, var(--crimson) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--crimson) 18%, transparent);
+}
+
+.brothers-chevron {
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
   flex-shrink: 0;
 }
 
+.brothers-remove {
+  flex-shrink: 0;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 520px) {
-  .collected-row {
+  .brothers-row {
     flex-wrap: wrap;
   }
 
-  .collected-remove {
+  .brothers-remove {
     width: 100%;
   }
 }

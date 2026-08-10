@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -11,10 +10,12 @@ import {
   where,
   type DocumentData,
 } from 'firebase/firestore';
+import { upsertBrotherFromEncounter, upsertBrotherFromQr } from './brothers';
 import { isLikelyBotOrPreviewAgent } from './bots';
 import { db } from './firebase';
 import { qrDevLog } from './qrDevLog';
-import type { Encounter, EncounterSource } from '../types';
+import { getUserById } from './users';
+import type { Encounter, EncounterSource, UserProfile } from '../types';
 
 const ANON_SESSION_KEY = 'kappa:anonSession';
 const ENCOUNTER_DEDUPE_MS = 15 * 60 * 1000; // 15 minutes
@@ -110,17 +111,20 @@ function mapEncounter(id: string, data: DocumentData): Encounter {
 }
 
 export type RecordEncounterResult =
-  | { status: 'created'; encounterId: string }
+  | { status: 'created'; encounterId?: string; brotherId?: string }
   | { status: 'skipped'; reason: 'self' | 'bot' | 'deduped' | 'not_qr' };
 
 /**
- * Create an Encounter for a QR-origin card visit (background, no UI).
+ * Record a QR-origin card visit (background, no UI).
+ * Authenticated: upserts Brothers. Anonymous: writes encounters for claim-on-login.
  * Direct profile views must not call this (they stay analytics-only).
  */
 export async function recordQrEncounter(input: {
   ownerId: string;
   viewerId?: string | null;
   source?: EncounterSource;
+  /** Preferred for authenticated upserts — avoids an extra profile fetch */
+  subject?: UserProfile | null;
 }): Promise<RecordEncounterResult> {
   const ownerId = input.ownerId?.trim();
   if (!ownerId) throw new Error('ownerId is required.');
@@ -154,31 +158,50 @@ export async function recordQrEncounter(input: {
   markRecorded(ownerId, scanner);
 
   const now = new Date().toISOString();
+
+  // Signed-in: person-centric Brothers upsert (no list-facing encounters doc)
+  if (viewerId) {
+    qrDevLog('Upserting Brother from authenticated QR visit.', {
+      ownerId,
+      viewerId,
+      timestamp: now,
+    });
+    try {
+      const subject = input.subject ?? (await getUserById(ownerId));
+      if (!subject) {
+        clearRecorded(ownerId, scanner);
+        throw new Error('Card owner profile not found.');
+      }
+      await upsertBrotherFromQr(viewerId, subject);
+      qrDevLog('Brother upserted from QR.', { ownerId, viewerId });
+      return { status: 'created', brotherId: ownerId };
+    } catch (err) {
+      clearRecorded(ownerId, scanner);
+      qrDevLog('Brother QR upsert failed (profile/vCard unaffected).', err);
+      throw err;
+    }
+  }
+
+  // Anonymous: short-lived encounters doc for claim-on-login
   const payload: Record<string, unknown> = {
     ownerId,
     timestamp: now,
     source: 'qr',
     createdAt: now,
     updatedAt: now,
+    anonymousSessionId: getOrCreateAnonymousSessionId(),
   };
 
-  if (viewerId) {
-    payload.viewerId = viewerId;
-  } else {
-    payload.anonymousSessionId = getOrCreateAnonymousSessionId();
-  }
-
-  qrDevLog('Creating Encounter from QR visit.', {
+  qrDevLog('Creating anonymous Encounter from QR visit.', {
     ownerId,
-    viewerId: viewerId ?? null,
-    anonymous: !viewerId,
+    anonymous: true,
     timestamp: now,
     source: 'qr',
   });
 
   try {
     const ref = await addDoc(collection(requireDb(), 'encounters'), payload);
-    qrDevLog('Encounter created.', { encounterId: ref.id, ownerId, viewerId: viewerId ?? null });
+    qrDevLog('Anonymous Encounter created.', { encounterId: ref.id, ownerId });
     return { status: 'created', encounterId: ref.id };
   } catch (err) {
     clearRecorded(ownerId, scanner);
@@ -187,7 +210,7 @@ export async function recordQrEncounter(input: {
   }
 }
 
-/** Attach anonymous encounters from this browser to the signed-in user. */
+/** Attach anonymous encounters from this browser into Brothers for the signed-in user. */
 export async function claimAnonymousEncounters(userId: string): Promise<number> {
   const uid = userId?.trim();
   if (!uid) return 0;
@@ -209,6 +232,12 @@ export async function claimAnonymousEncounters(userId: string): Promise<number> 
       if (typeof data.viewerId === 'string' && data.viewerId) return;
       if (data.ownerId === uid) return;
 
+      const encounter = mapEncounter(d.id, data);
+      const subject = await getUserById(encounter.ownerId);
+      if (subject) {
+        await upsertBrotherFromEncounter(uid, subject, encounter);
+      }
+
       await updateDoc(d.ref, {
         viewerId: uid,
         claimedAt: now,
@@ -219,10 +248,41 @@ export async function claimAnonymousEncounters(userId: string): Promise<number> 
   );
 
   if (claimed > 0) {
-    qrDevLog('Claimed anonymous encounters for signed-in user.', { userId: uid, claimed });
+    qrDevLog('Claimed anonymous encounters into Brothers.', { userId: uid, claimed });
   }
 
   return claimed;
+}
+
+/**
+ * Backfill: merge any viewer encounters into Brothers rows (legacy Met data).
+ * Safe to call on every Brothers list load.
+ */
+export async function mergeMyEncountersIntoBrothers(viewerId: string): Promise<number> {
+  const uid = viewerId?.trim();
+  if (!uid) return 0;
+
+  let encounters: Encounter[] = [];
+  try {
+    encounters = await listMyEncounters(uid);
+  } catch {
+    // Index still building or rules — skip backfill quietly
+    return 0;
+  }
+
+  let merged = 0;
+  for (const encounter of encounters) {
+    if (!encounter.ownerId || encounter.ownerId === uid) continue;
+    try {
+      const subject = await getUserById(encounter.ownerId);
+      if (!subject) continue;
+      await upsertBrotherFromEncounter(uid, subject, encounter);
+      merged += 1;
+    } catch {
+      // continue with other rows
+    }
+  }
+  return merged;
 }
 
 /** Encounters where the signed-in user was the scanner, newest first. */
@@ -248,43 +308,6 @@ export async function getEncounter(encounterId: string): Promise<Encounter | nul
   const snap = await getDoc(doc(requireDb(), 'encounters', id));
   if (!snap.exists()) return null;
   return mapEncounter(snap.id, snap.data());
-}
-
-export type EncounterContextUpdate = {
-  event?: string;
-  location?: string;
-  privateNote?: string;
-};
-
-/**
- * Update the scanner's private meeting context on their encounter.
- * Empty strings clear the field. Never written to the brother's public profile.
- */
-export async function updateEncounterContext(
-  encounterId: string,
-  updates: EncounterContextUpdate
-): Promise<void> {
-  const id = encounterId?.trim();
-  if (!id) throw new Error('Encounter id is required.');
-
-  const payload: Record<string, unknown> = {
-    updatedAt: new Date().toISOString(),
-  };
-
-  if ('event' in updates) {
-    const value = updates.event?.trim() ?? '';
-    payload.event = value ? value.slice(0, 200) : deleteField();
-  }
-  if ('location' in updates) {
-    const value = updates.location?.trim() ?? '';
-    payload.location = value ? value.slice(0, 200) : deleteField();
-  }
-  if ('privateNote' in updates) {
-    const value = updates.privateNote?.trim() ?? '';
-    payload.privateNote = value ? value.slice(0, 2000) : deleteField();
-  }
-
-  await updateDoc(doc(requireDb(), 'encounters', id), payload);
 }
 
 export function mapEncounterDoc(id: string, data: DocumentData): Encounter {

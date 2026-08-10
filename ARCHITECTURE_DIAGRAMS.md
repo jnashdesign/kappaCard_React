@@ -11,6 +11,7 @@ Visual companion to [`ARCHITECTURE.md`](ARCHITECTURE.md). Each section below is 
 | Invites & signup flow | [#invites-and-signup-flow](#invites-and-signup-flow) |
 | Invite entity shapes | [#invite-entity-shapes](#invite-entity-shapes) |
 | Public card & QR visit flow | [#public-card-and-qr-visit-flow](#public-card-and-qr-visit-flow) |
+| Brothers upsert flow | [#brothers-upsert-flow](#brothers-upsert-flow) |
 | Encounters vs analytics | [#encounters-vs-profile-analytics](#encounters-vs-profile-analytics) |
 | Encounter entity | [#encounter-entity](#encounter-entity) |
 | Payments & account deletion | [#payments-and-account-deletion](#payments-and-account-deletion) |
@@ -135,11 +136,11 @@ erDiagram
 | Path | Purpose |
 |------|---------|
 | `users/{uid}` | Member profile, tier, stats, privacy, inviter denorm |
-| `users/{uid}/collectedCards/{subjectUid}` | One-sided Save-to-Contacts bookmarks |
+| `users/{uid}/collectedCards/{subjectUid}` | Brothers list row (QR meet and/or saved contact + private notes) |
 | `usernames/{slug}` | Public slug → uid (aliases for renames) |
 | `invites/{id}` | One-time and multi-use invite codes |
 | `inviteRequests/{id}` | Public “request an invite” inbox for admins |
-| `encounters/{id}` | QR (etc.) meetings; private notes for viewer only |
+| `encounters/{id}` | Anonymous QR claim pipeline (not the Brothers UI store) |
 | `accountDeletions/{id}` | Churn analytics after account wipe |
 | `payments/{sessionId}` | Stripe Checkout records (Admin SDK only) |
 
@@ -154,7 +155,7 @@ erDiagram
   UserProfile ||--|| UserStats : embeds
   UserProfile ||--o| SocialMedia : embeds
   UserProfile ||--o| FieldPrivacy : embeds
-  UserProfile ||--o{ CollectedCard : "subcollection"
+  UserProfile ||--o{ BrotherRecord : "collectedCards subcollection"
 
   UserProfile {
     string id
@@ -214,7 +215,7 @@ erDiagram
     string tiktok
   }
 
-  CollectedCard {
+  BrotherRecord {
     string subjectUserId
     string username
     string name
@@ -223,8 +224,15 @@ erDiagram
     string profilePicture
     string occupation
     string currentCity
-    string collectedAt
-    string source
+    boolean metViaQr
+    boolean savedContact
+    string lastMetAt
+    string savedContactAt
+    string firstActivityAt
+    string lastActivityAt
+    string event
+    string location
+    string privateNote
   }
 ```
 
@@ -330,9 +338,26 @@ Normal shares and vCard profile URLs omit `?via=qr`. Only generated QR codes inc
 
 ---
 
+## Brothers upsert flow
+
+```mermaid
+flowchart TD
+  qrAuth["QR visit signed in"] --> upsert["Upsert users/uid/collectedCards/subjectUid"]
+  save["Save to Contacts"] --> upsert
+  qrAnon["QR visit anonymous"] --> enc["encounters doc"]
+  enc --> claim["Login claim"]
+  claim --> upsert
+  upsert --> list["Brothers list /brothers"]
+  list --> detail["Detail /brothers/subjectUid"]
+```
+
+One row per brother. Badges: Met via QR and/or Saved contact. Notes live on the brother row.
+
+---
+
 ## Encounters vs profile analytics
 
-Encounters are **not** the same as profile views. Direct visits bump `users.stats.cardViews*`. QR visits (`?via=qr`) bump analytics **and** may create an `encounters` document.
+Encounters are **not** the same as profile views. Direct visits bump `users.stats.cardViews*`. QR visits (`?via=qr`) bump analytics **and** upsert Brothers (signed-in) or write an anonymous `encounters` doc for claim.
 
 ```mermaid
 flowchart TD
@@ -340,12 +365,11 @@ flowchart TD
   visit --> source{"via=qr?"}
   source -->|no| analyticsDirect["stats.cardViews + cardViewsDirect"]
   source -->|yes| analyticsQr["stats.cardViews + cardViewsQr"]
-  source -->|yes| encounter["encounters create"]
-  encounter --> auth{"Signed in?"}
-  auth -->|yes| withViewer["viewerId = auth.uid"]
-  auth -->|no| anon["anonymousSessionId only"]
-  anon --> claim["On login: claimAnonymousEncounters"]
-  claim --> withViewer
+  source -->|yes| auth{"Signed in?"}
+  auth -->|yes| brother["Brothers upsert metViaQr"]
+  auth -->|no| anon["encounters anonymousSessionId"]
+  anon --> claim["On login: claim → Brothers upsert"]
+  claim --> brother
 ```
 
 ---
@@ -370,7 +394,7 @@ erDiagram
   }
 ```
 
-**Privacy:** `event`, `location`, and `privateNote` belong to the scanner’s encounter record (People I've Met). They never appear on the brother’s public card. Owners cannot client-read encounter docs in v1. Scanner can read/update their own rows; claim attaches `viewerId` after signup/login.
+**Privacy:** Private notes for day-to-day use live on the **Brothers** row (`collectedCards`). Top-level `encounters` remain for anonymous QR → claim; owners still cannot client-read encounter docs in v1.
 
 ---
 

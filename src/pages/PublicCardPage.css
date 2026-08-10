@@ -31,6 +31,44 @@
   text-align: center;
 }
 
+.public-card-owner-toolbar {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.public-card-owner-tool {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 248, 240, 0.28);
+  background: rgba(28, 10, 10, 0.42);
+  color: #fff8f0;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.public-card-owner-tool:hover {
+  background: rgba(109, 14, 15, 0.92);
+  border-color: color-mix(in srgb, var(--gold) 55%, white);
+  transform: translateY(-1px);
+}
+
+.public-card-owner-tool:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .public-card-hero::before {
   content: '';
   position: absolute;
