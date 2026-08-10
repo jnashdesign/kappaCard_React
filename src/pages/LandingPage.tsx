@@ -35,7 +35,7 @@ export default function LandingPage() {
           <h1 className="landing-brand">Never Forget A Brother Again</h1>
           <p className="landing-headline">Make lasting connections in less than 30 seconds.</p>
           <p className="landing-lede">
-          Skip the awkward exchange of phone numbers and social media handles. Share a complete contact info with&nbsp;a&nbsp;single&nbsp;scan.
+          Skip the awkward exchange of phone numbers and social media handles. <br/><br/>Share your complete contact info with a single&nbsp;scan.
           </p>
           <div className="landing-actions">
             {primaryCta}
@@ -91,7 +91,7 @@ export default function LandingPage() {
       <section className="landing-section">
         <div className="landing-section-header">
           <h2>How it works</h2>
-          <p>From invite to saved contact — built for real-world introductions.</p>
+          <p>Invite, card, scan — then actually remember who you met.</p>
         </div>
         <ol className="landing-steps">
           <li>
@@ -104,11 +104,11 @@ export default function LandingPage() {
           </li>
           <li>
             <h3>Save to Photos</h3>
-            <p>Download a branded image with a QR that always points to your live page.</p>
+            <p>Download an image of your QR code that always points to your live page.</p>
           </li>
           <li>
             <h3>Meet &amp; Connect</h3>
-            <p>Scanners open your page and tap Add to Contacts — no app install needed.</p>
+            <p>Scanners open your page and save you to their phone — no app required.</p>
           </li>
         </ol>
       </section>

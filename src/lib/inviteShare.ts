@@ -7,7 +7,7 @@ export function inviteSignupUrl(origin: string, code: string): string {
 export function inviteShareMessage(code: string, signupUrl: string, inviterName?: string): string {
   const who = inviterName?.trim() || 'a brother';
   return [
-    `${who} invited you to MyKappaCard.`,
+    `Yo Nupe! I want to invite you to MyKappaCard.`,
     '',
     `Use this link to create your account:`,
     signupUrl,

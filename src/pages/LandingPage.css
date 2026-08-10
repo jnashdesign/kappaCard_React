@@ -50,6 +50,7 @@
   display: grid;
   gap: 1rem;
   align-content: center;
+  padding-right: 20px;
 }
 
 .landing-brand {
