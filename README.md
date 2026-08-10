@@ -65,11 +65,12 @@ npm run seed:user
 - `qrcode` + `html-to-image` for Card generation
 - `vite-plugin-pwa` for installability
 
-## Data models
+## Architecture
 
-Firestorestore entity relationships, nested profile maps, invite/signup flow, Encounter vs analytics, and payments/deletion shapes are documented with diagrams in [`SESSION_DOCUMENTATION.md`](SESSION_DOCUMENTATION.md#data-models).
+- Tech approach (with links into diagrams): [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Diagrams (Mermaid ER / flowcharts): [`ARCHITECTURE_DIAGRAMS.md`](ARCHITECTURE_DIAGRAMS.md)
 
-Canonical TypeScript interfaces: [`src/types/index.ts`](src/types/index.ts). Rules: [`firestore.rules`](firestore.rules).
+Canonical TypeScript interfaces: [`src/types/index.ts`](src/types/index.ts). Rules: [`firestore.rules`](firestore.rules). Session notes: [`SESSION_DOCUMENTATION.md`](SESSION_DOCUMENTATION.md).
 
 ## Pricing & Stripe
 
