@@ -9,6 +9,8 @@ import CompleteProfilePage from './pages/CompleteProfilePage';
 import InvitesPage from './pages/InvitesPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
+import MetDetailPage from './pages/MetDetailPage';
+import MetPage from './pages/MetPage';
 import MyCardPage from './pages/MyCardPage';
 import PricingPage from './pages/PricingPage';
 import ProfilePage from './pages/ProfilePage';
@@ -72,6 +74,22 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <CollectedPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="met"
+              element={
+                <ProtectedRoute>
+                  <MetPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="met/:encounterId"
+              element={
+                <ProtectedRoute>
+                  <MetDetailPage />
                 </ProtectedRoute>
               }
             />

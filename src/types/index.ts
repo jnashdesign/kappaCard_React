@@ -145,6 +145,32 @@ export interface CollectedCard {
   source: 'vcard_download';
 }
 
+/**
+ * One member (or anonymous browser session) encountered another member's Kappa Card.
+ * Distinct from analytics `stats.cardViews*` — only strong signals (e.g. QR) create these.
+ */
+export type EncounterSource = 'qr' | 'direct' | (string & {});
+
+export interface Encounter {
+  id: string;
+  /** Card / profile owner */
+  ownerId: string;
+  /** Authenticated scanner; null/absent when anonymous */
+  viewerId?: string | null;
+  /** Opaque local UUID for claim-on-login; never treat as public identity */
+  anonymousSessionId?: string | null;
+  timestamp: string;
+  source: EncounterSource;
+  event?: string;
+  location?: string;
+  /** Scanner-only; not readable by the card owner via security rules */
+  privateNote?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Set when an anonymous encounter is claimed by a signed-in user */
+  claimedAt?: string;
+}
+
 /** Public request for an invite — admin verifies membership manually */
 export interface InviteRequest {
   id: string;
@@ -172,6 +198,7 @@ export const RESERVED_USERNAMES = [
   'invite',
   'invites',
   'collected',
+  'met',
   'request-invite',
   'requests',
   'upgrade',

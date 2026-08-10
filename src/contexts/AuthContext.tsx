@@ -18,6 +18,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
+import { claimAnonymousEncounters } from '../lib/encounters';
 import {
   createUserProfile,
   deleteMyAccount,
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             void recordSessionLogin(user.uid)
               .then(() => refreshProfile())
               .catch(() => undefined);
+            void claimAnonymousEncounters(user.uid).catch(() => undefined);
           }
         } catch (error) {
           console.error('Failed to load profile', error);
@@ -118,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tier: 'free',
     });
     setProfile(created);
+    void claimAnonymousEncounters(credential.user.uid).catch(() => undefined);
   }, []);
 
   const signInWithGoogle = useCallback(async (_inviteCode?: string) => {
@@ -126,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const existing = await getUserById(result.user.uid);
     if (existing) {
       setProfile(existing);
+      void claimAnonymousEncounters(result.user.uid).catch(() => undefined);
       return 'ready' as const;
     }
     // New Google users always finish invite + profile fields next
@@ -145,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tier: 'free' as MembershipTier,
       });
       setProfile(created);
+      void claimAnonymousEncounters(auth.currentUser.uid).catch(() => undefined);
     },
     []
   );

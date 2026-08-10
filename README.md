@@ -65,6 +65,12 @@ npm run seed:user
 - `qrcode` + `html-to-image` for Card generation
 - `vite-plugin-pwa` for installability
 
+## Data models
+
+Firestorestore entity relationships, nested profile maps, invite/signup flow, Encounter vs analytics, and payments/deletion shapes are documented with diagrams in [`SESSION_DOCUMENTATION.md`](SESSION_DOCUMENTATION.md#data-models).
+
+Canonical TypeScript interfaces: [`src/types/index.ts`](src/types/index.ts). Rules: [`firestore.rules`](firestore.rules).
+
 ## Pricing & Stripe
 
 Public pricing page: `/pricing` ($9.99 one-time Basic).

@@ -127,5 +127,112 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow read, write: if false;
     }
+
+    /**
+     * Encounters: QR (or future explicit) meetings between a scanner and a card owner.
+     * Distinct from users.stats.cardViews* analytics.
+     *
+     * Privacy:
+     * - Anonymous rows have anonymousSessionId only (no PII); owners cannot read them.
+     * - Identified rows are readable by the scanner (viewerId). Owners do not get client
+     *   read access in v1 so privateNote cannot leak via full-document reads.
+     * - Claim attaches viewerId on login using the local anonymous session id.
+     */
+    match /encounters/{encounterId} {
+      function encounterKeysOk() {
+        return request.resource.data.keys().hasOnly([
+          'ownerId',
+          'viewerId',
+          'anonymousSessionId',
+          'timestamp',
+          'source',
+          'event',
+          'location',
+          'privateNote',
+          'createdAt',
+          'updatedAt',
+          'claimedAt'
+        ]);
+      }
+
+      function hasOwnerId() {
+        return request.resource.data.ownerId is string
+          && request.resource.data.ownerId.size() >= 8
+          && request.resource.data.ownerId.size() <= 128;
+      }
+
+      function hasSource() {
+        return request.resource.data.source is string
+          && request.resource.data.source.size() >= 1
+          && request.resource.data.source.size() <= 32;
+      }
+
+      function hasTimestampFields() {
+        return request.resource.data.timestamp is string
+          && request.resource.data.createdAt is string
+          && request.resource.data.updatedAt is string;
+      }
+
+      function isAuthCreate() {
+        return signedIn()
+          && request.resource.data.viewerId == request.auth.uid
+          && !('anonymousSessionId' in request.resource.data);
+      }
+
+      function isAnonCreate() {
+        return !signedIn()
+          && !('viewerId' in request.resource.data)
+          && request.resource.data.anonymousSessionId is string
+          && request.resource.data.anonymousSessionId.size() >= 8
+          && request.resource.data.anonymousSessionId.size() <= 128
+          && !('privateNote' in request.resource.data);
+      }
+
+      function isViewer() {
+        return signedIn()
+          && resource.data.viewerId is string
+          && resource.data.viewerId == request.auth.uid;
+      }
+
+      function isClaimUpdate() {
+        return signedIn()
+          && resource.data.anonymousSessionId is string
+          && !('viewerId' in resource.data)
+          && request.resource.data.viewerId == request.auth.uid
+          && request.resource.data.anonymousSessionId == resource.data.anonymousSessionId
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.source == resource.data.source
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.timestamp == resource.data.timestamp
+          && request.resource.data.claimedAt is string
+          && request.resource.data.updatedAt is string
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['ownerId', 'source', 'createdAt', 'timestamp', 'anonymousSessionId']);
+      }
+
+      function isViewerMetadataUpdate() {
+        return isViewer()
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.viewerId == resource.data.viewerId
+          && request.resource.data.source == resource.data.source
+          && request.resource.data.createdAt == resource.data.createdAt
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['ownerId', 'viewerId', 'source', 'createdAt', 'anonymousSessionId']);
+      }
+
+      allow create: if encounterKeysOk()
+        && hasOwnerId()
+        && hasSource()
+        && hasTimestampFields()
+        && (isAuthCreate() || isAnonCreate());
+
+      // Scanner + admin only (protects privateNote; owner UI deferred)
+      allow read: if isViewer() || isAdmin();
+
+      allow update: if encounterKeysOk()
+        && (isClaimUpdate() || isViewerMetadataUpdate());
+
+      allow delete: if isViewer() || isAdmin();
+    }
   }
 }

@@ -111,10 +111,331 @@ Updated: 2026-07-29 — switched `.env.local` to KappaCards config.
 ## Architecture notes
 
 - Vite + React + TypeScript SPA/PWA
-- Firebase Auth + Firestore collections: `users`, `usernames`, `invites`
+- Firebase Auth + Firestore + Storage + Cloud Functions
+- Firestore collections: `users` (+ `collectedCards` subcollection), `usernames`, `invites`, `inviteRequests`, `encounters`, `accountDeletions`, `payments`
 - Public Card page builds a vCard download for Add to Contacts
 - My Card page renders branded card + QR and exports PNG via `html-to-image`
 - Seed scripts use Firebase Admin SDK (`scripts/seed-admin.mjs`, `scripts/seed-user.mjs`)
+
+## Data models
+
+Canonical TypeScript shapes live in [`src/types/index.ts`](src/types/index.ts). Field-level privacy keys live in [`src/lib/privacy.ts`](src/lib/privacy.ts). Security rules: [`firestore.rules`](firestore.rules).
+
+### Firestore overview
+
+```mermaid
+erDiagram
+  users ||--o{ usernames : "aliases resolve to"
+  users ||--o{ invites : "creates as inviter"
+  users ||--o{ collectedCards : "bookmarks"
+  users ||--o{ encounters : "owner of scanned card"
+  users ||--o{ encounters : "authenticated viewer"
+  users ||--o{ accountDeletions : "churn log on delete"
+  users ||--o{ payments : "Stripe unlock"
+  inviteRequests ||--o| invites : "admin approve may create"
+
+  users {
+    string id PK
+    string email
+    string name
+    string username
+    string tier
+    boolean admin
+    map stats
+    map fieldPrivacy
+    map socialMedia
+  }
+
+  usernames {
+    string username PK
+    string userId FK
+    boolean current
+  }
+
+  invites {
+    string id PK
+    string code
+    string inviterId FK
+    boolean active
+    boolean multiUse
+    boolean grantsBasic
+  }
+
+  inviteRequests {
+    string id PK
+    string email
+    string status
+  }
+
+  encounters {
+    string id PK
+    string ownerId FK
+    string viewerId FK
+    string anonymousSessionId
+    string source
+    string timestamp
+  }
+
+  collectedCards {
+    string id PK
+    string subjectUserId FK
+    string collectedAt
+  }
+
+  accountDeletions {
+    string id PK
+    string userId
+    string deletedAt
+  }
+
+  payments {
+    string id PK
+    string userId FK
+  }
+```
+
+### Collection paths
+
+| Path | Purpose |
+|------|---------|
+| `users/{uid}` | Member profile, tier, stats, privacy, inviter denorm |
+| `users/{uid}/collectedCards/{subjectUid}` | One-sided Save-to-Contacts bookmarks |
+| `usernames/{slug}` | Public slug → uid (aliases for renames) |
+| `invites/{id}` | One-time and multi-use invite codes |
+| `inviteRequests/{id}` | Public “request an invite” inbox for admins |
+| `encounters/{id}` | QR (etc.) meetings; private notes for viewer only |
+| `accountDeletions/{id}` | Churn analytics after account wipe |
+| `payments/{sessionId}` | Stripe Checkout records (Admin SDK only) |
+
+Storage (not Firestore): `profile-pictures/{uid}/profile.*`, `profile-pictures/{uid}/background.*`.
+
+### User profile (nested)
+
+```mermaid
+erDiagram
+  UserProfile ||--|| UserStats : embeds
+  UserProfile ||--o| SocialMedia : embeds
+  UserProfile ||--o| FieldPrivacy : embeds
+  UserProfile ||--o{ CollectedCard : "subcollection"
+
+  UserProfile {
+    string id
+    string email
+    string name
+    string username
+    string phone
+    string chapter
+    number initiationYear
+    string occupation
+    string currentEmployer
+    string currentCity
+    string province
+    string profilePicture
+    string profilePicturePath
+    string cardBackground
+    string cardBackgroundPath
+    string invitedBy
+    string inviteCode
+    string tier
+    boolean admin
+    string createdAt
+    string updatedAt
+  }
+
+  UserStats {
+    number logins
+    number invitesCreated
+    number profileUpdates
+    number cardImageDownloads
+    number cardViews
+    number cardViewsQr
+    number cardViewsDirect
+    number contactDownloads
+  }
+
+  SocialMedia {
+    string linkedin
+    string x
+    string instagram
+    string snapchat
+    string youtube
+    string tiktok
+  }
+
+  FieldPrivacy {
+    string email
+    string phone
+    string occupation
+    string profilePicture
+    string cardBackground
+    string linkedin
+    string x
+    string instagram
+    string snapchat
+    string youtube
+    string tiktok
+  }
+
+  CollectedCard {
+    string subjectUserId
+    string username
+    string name
+    string chapter
+    number initiationYear
+    string profilePicture
+    string occupation
+    string currentCity
+    string collectedAt
+    string source
+  }
+```
+
+**Always public (not in `fieldPrivacy`):** name, username, chapter, initiation year, inviter accountability fields.  
+**Optional fields:** default `public` until the member flips to `private`; `toPublicProfile()` strips private values for the public card and vCard.
+
+### Invites and signup
+
+```mermaid
+flowchart LR
+  subgraph public [Public]
+    ReqInvite["/request-invite"]
+    Signup["/signup + invite code"]
+  end
+
+  subgraph firestore [Firestore]
+    IR["inviteRequests"]
+    INV["invites"]
+    U["users"]
+    UN["usernames"]
+  end
+
+  ReqInvite -->|create pending| IR
+  Admin[Admin approve] -->|create one-time invite| INV
+  Signup -->|redeem code| INV
+  Signup -->|create| U
+  Signup -->|claim slug| UN
+  INV -->|inviterId| U
+  U -->|invitedBy denorm| U
+```
+
+```mermaid
+erDiagram
+  InviteRecord {
+    string id
+    string code
+    string inviterId
+    string inviterName
+    string inviterUsername
+    string inviterChapter
+    number inviterInitiationYear
+    string usedBy
+    string usedAt
+    boolean active
+    boolean multiUse
+    number useCount
+    string lastUsedAt
+    boolean grantsBasic
+    string createdAt
+  }
+
+  InviteRequest {
+    string id
+    string name
+    string chapter
+    number initiationYear
+    string email
+    string status
+    string createdAt
+    string inviteCode
+  }
+
+  UsernameAlias {
+    string username
+    string userId
+    boolean current
+    string createdAt
+  }
+```
+
+### Encounters vs profile analytics
+
+Encounters are **not** the same as profile views. Direct visits bump `users.stats.cardViews*`. QR visits (`?via=qr`) bump analytics **and** may create an `encounters` document.
+
+```mermaid
+flowchart TD
+  visit["Open /card/username"]
+  visit --> source{"via=qr?"}
+  source -->|no| analyticsDirect["stats.cardViews + cardViewsDirect"]
+  source -->|yes| analyticsQr["stats.cardViews + cardViewsQr"]
+  source -->|yes| encounter["encounters create"]
+  encounter --> auth{"Signed in?"}
+  auth -->|yes| withViewer["viewerId = auth.uid"]
+  auth -->|no| anon["anonymousSessionId only"]
+  anon --> claim["On login: claimAnonymousEncounters"]
+  claim --> withViewer
+```
+
+```mermaid
+erDiagram
+  Encounter {
+    string id
+    string ownerId
+    string viewerId
+    string anonymousSessionId
+    string timestamp
+    string source
+    string event
+    string location
+    string privateNote
+    string createdAt
+    string updatedAt
+    string claimedAt
+  }
+```
+
+**Privacy:** `event`, `location`, and `privateNote` belong to the scanner’s encounter record (People I've Met). They are never projected onto the brother’s public card. Owners cannot client-read encounter docs in v1 (protects notes). Scanner can read/update their own rows; claim attaches `viewerId` after signup/login.
+
+### Payments and account deletion
+
+```mermaid
+erDiagram
+  Payment {
+    string id
+    string userId
+    string status
+  }
+
+  AccountDeletion {
+    string id
+    string userId
+    string username
+    string email
+    string name
+    string chapter
+    string province
+    number initiationYear
+    string tier
+    boolean wasActivated
+    string deletedAt
+  }
+```
+
+- `payments`: written only by Cloud Functions / Admin SDK; clients have no read/write.
+- `accountDeletions`: member creates on wipe; admins read for churn analytics.
+
+### Deferred / legacy (not active product surfaces)
+
+```mermaid
+erDiagram
+  ConnectionRequest {
+    string id
+    string fromUserId
+    string toUserId
+    string status
+  }
+```
+
+`ConnectionRequest` types remain in code for a possible later return; the Requests UI and Firestore rules for connection requests are not in the current product path.
 
 ## Still to do / follow-ups
 
@@ -266,4 +587,55 @@ Use a **new** QR (regenerate My Card image) or open `/card/{username}?via=qr`. W
 2. Expect: `.vcf` download in the download bar.  
 3. Refresh loop + button fallback checks.  
 4. Direct visit control: no auto download.
+
+## Session: Encounter data model (2026-08-09)
+
+### Concept
+An **Encounter** is the fact that someone encountered a member’s Kappa Card (strong signal). It is **not** a profile view. Direct `/card/{username}` visits remain analytics (`stats.cardViews` / `cardViewsDirect`). QR visits (`?via=qr`) still increment analytics **and** may create an Encounter.
+
+### Firestore structure
+Collection: `encounters/{encounterId}`
+
+| Field | Type | Notes |
+|--------|------|--------|
+| `ownerId` | string | Card / profile owner uid |
+| `viewerId` | string? | Authenticated scanner; omitted when anonymous |
+| `anonymousSessionId` | string? | Opaque UUID from `localStorage` (`kappa:anonSession`); not PII |
+| `timestamp` | string (ISO) | Encounter time |
+| `source` | string | `qr` for auto-created rows |
+| `event` | string? | Optional |
+| `location` | string? | Optional place text |
+| `privateNote` | string? | Scanner-only; not writable on anonymous create |
+| `createdAt` / `updatedAt` | string (ISO) | |
+| `claimedAt` | string? | Set when anonymous → authenticated |
+
+### Client behavior
+- [`src/lib/encounters.ts`](src/lib/encounters.ts): `recordQrEncounter`, `claimAnonymousEncounters`, anon session helper.
+- [`PublicCardPage`](src/pages/PublicCardPage.tsx): records encounter only when `visitSource === 'qr'` (after auth settles), quietly in the background; failures never block profile or vCard.
+- Dev logs (`[KappaCard QR]`): ready → creating / skipped (self|bot|dedupe|not_qr) → created or failed.
+- [`AuthContext`](src/contexts/AuthContext.tsx): claims anonymous encounters after login / signup / Google ready.
+- Dedupe: 15 minutes per `(scannerKey, ownerId)` in `sessionStorage`; skip self-scan and bots. Failed writes clear the dedupe mark so a later retry can succeed.
+
+### Security model (`firestore.rules`)
+- **Create (auth):** `viewerId == auth.uid`, no `anonymousSessionId`.
+- **Create (anon):** `anonymousSessionId` only (8–128 chars), no `viewerId`, no `privateNote`.
+- **Read:** scanner (`viewerId == auth.uid`) or admin. **Card owners cannot read encounter docs in v1** so `privateNote` cannot leak via full-document reads (Firestorestore has no field-level read ACL). Owner-facing history can use a future projection without notes.
+- **Update:** claim (attach `viewerId` + `claimedAt` while keeping `anonymousSessionId` / immutable core fields) or viewer metadata edits (`privateNote` / `event` / `location`).
+- **Delete:** viewer or admin.
+
+Anonymous encounters are never exposed to the profile owner as an identified scanner.
+
+### Deploy
+```bash
+firebase deploy --only firestore --project kappacards-07212025
+```
+Deploys rules + composite index `viewerId` ASC + `timestamp` DESC (needed for People I&apos;ve Met list).
+
+## Session: People I've Met (2026-08-09)
+
+- Authenticated routes: `/met` (chronological list, newest first, grouped by date) and `/met/:encounterId` (detail).
+- List shows public brother preview (photo, name, chapter/year, city), encounter time, event if set, and “Note saved” when a private note exists.
+- Detail shows current public Kappa Card fields, met timestamp/source, editable event / place / private note (saved only on the viewer’s encounter doc), and link to `/card/{username}`.
+- Nav: **People I've Met**. Mobile-first styling aligned with Collected.
+- APIs: `listMyEncounters`, `getEncounter`, `updateEncounterContext` in `src/lib/encounters.ts`.
 

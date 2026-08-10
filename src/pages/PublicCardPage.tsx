@@ -8,6 +8,7 @@ import {
   publicCardPathWithSearch,
   type ProfileVisitSource,
 } from '../lib/cardUrl';
+import { recordQrEncounter } from '../lib/encounters';
 import { getUserById, getUserByUsername } from '../lib/users';
 import { qrDevLog } from '../lib/qrDevLog';
 import { recordPublicCardEngagement } from '../lib/userStats';
@@ -123,7 +124,7 @@ function SocialIcon({ network }: { network: SocialNetwork }) {
 export default function PublicCardPage() {
   const { username = '' } = useParams();
   const [searchParams] = useSearchParams();
-  const { profile: viewer } = useAuth();
+  const { profile: viewer, loading: authLoading } = useAuth();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
   const [bgFailed, setBgFailed] = useState(false);
@@ -216,6 +217,25 @@ export default function PublicCardPage() {
       active = false;
     };
   }, [username]);
+
+  // Quiet background Encounter for QR visits only — never blocks profile or vCard
+  useEffect(() => {
+    if (loading || authLoading || !user) return;
+    if (visitSource !== 'qr') return;
+
+    qrDevLog('QR profile visit ready for Encounter recording.', {
+      ownerId: user.id,
+      viewerId: viewer?.id ?? null,
+    });
+
+    void recordQrEncounter({
+      ownerId: user.id,
+      viewerId: viewer?.id ?? null,
+      source: 'qr',
+    }).catch(() => {
+      // Logged inside recordQrEncounter; swallow so UI stays unaffected
+    });
+  }, [loading, authLoading, user, visitSource, viewer?.id]);
 
   const saveContact = useCallback(
     async (subject: UserProfile, opts?: { fromAuto?: boolean }) => {
