@@ -155,10 +155,35 @@
   word-break: break-word;
 }
 
+.public-card-inaugural {
+  margin: 0.35rem 0 0;
+  display: inline-block;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold) 70%, white);
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  color: #fff8f0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .public-card-chapter {
-  margin: -20px 0;
+  margin: 0.45rem 0 0;
   font-size: 1.02rem;
   color: color-mix(in srgb, #fff8f0 82%, transparent);
+}
+
+.public-card-chapter-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.public-card-chapter-link:hover {
+  text-decoration-color: var(--gold);
 }
 
 .public-card-role {

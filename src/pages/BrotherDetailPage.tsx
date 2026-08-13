@@ -1,11 +1,17 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getBrother, updateBrotherContext } from '../lib/brothers';
+import {
+  getBrother,
+  listBrothers,
+  recentEventNamesFromBrothers,
+  updateBrotherContext,
+} from '../lib/brothers';
 import { isUsablePhotoUrl } from '../lib/photos';
 import { toPublicProfile } from '../lib/privacy';
 import { getUserById } from '../lib/users';
 import type { BrotherRecord, UserProfile } from '../types';
+import ChapterNameLink from '../components/ChapterNameLink';
 import './BrotherDetailPage.css';
 
 function initialsFromName(name: string): string {
@@ -42,6 +48,12 @@ export default function BrotherDetailPage() {
   const [privateNote, setPrivateNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [recentEvents, setRecentEvents] = useState<string[]>([]);
+
+  const eventListId = useMemo(
+    () => `brother-event-suggestions-${subjectUserId || 'new'}`,
+    [subjectUserId]
+  );
 
   useEffect(() => {
     if (!viewer || !subjectUserId) return;
@@ -52,7 +64,10 @@ export default function BrotherDetailPage() {
 
     void (async () => {
       try {
-        const row = await getBrother(viewer.id, subjectUserId);
+        const [row, allBrothers] = await Promise.all([
+          getBrother(viewer.id, subjectUserId),
+          listBrothers(viewer.id).catch(() => [] as BrotherRecord[]),
+        ]);
         if (!active) return;
         if (!row) {
           setError('Brother not found.');
@@ -65,6 +80,7 @@ export default function BrotherDetailPage() {
         setEvent(row.event ?? '');
         setLocation(row.location ?? '');
         setPrivateNote(row.privateNote ?? '');
+        setRecentEvents(recentEventNamesFromBrothers(allBrothers));
 
         const owner = await getUserById(row.subjectUserId);
         if (!active) return;
@@ -150,12 +166,20 @@ export default function BrotherDetailPage() {
           <div>
             <h1 className="brother-detail-name">{name}</h1>
             <p className="brother-detail-meta">
-              {[
-                live?.chapter || record.chapter,
-                String(live?.initiationYear || record.initiationYear || ''),
-              ]
-                .filter(Boolean)
-                .join(' · ') || 'Kappa Card member'}
+              {(() => {
+                const chapter = (live?.chapter || record.chapter || '').trim();
+                const year = live?.initiationYear || record.initiationYear;
+                if (!chapter && !year) return 'Kappa Card member';
+                return (
+                  <>
+                    {chapter ? (
+                      <ChapterNameLink chapter={chapter} className="brother-detail-chapter-link" />
+                    ) : null}
+                    {chapter && year ? ' · ' : null}
+                    {year || null}
+                  </>
+                );
+              })()}
             </p>
             {(live?.occupation || record.occupation) && (
               <p className="brother-detail-sub">{live?.occupation || record.occupation}</p>
@@ -221,8 +245,28 @@ export default function BrotherDetailPage() {
             placeholder="e.g. Conclave mixer"
             maxLength={200}
             autoComplete="off"
+            list={eventListId}
           />
         </label>
+        <datalist id={eventListId}>
+          {recentEvents.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+        {recentEvents.length > 0 && (
+          <div className="brother-event-chips" aria-label="Recent events">
+            {recentEvents.slice(0, 5).map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="brother-event-chip"
+                onClick={() => setEvent(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <label>
           Place

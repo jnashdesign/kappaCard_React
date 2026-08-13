@@ -1,189 +1,72 @@
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
+const { getFirestore } = require('firebase-admin/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
-const Stripe = require('stripe');
+const { runBrothersRecapBatch, runBrothersRecapForUid } = require('./brothersRecap');
 
 initializeApp();
 
-const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
-const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
-
-const BASIC_AMOUNT_CENTS = 999;
-const BASIC_PRODUCT_NAME = 'Kappa Card Basic';
-
-function getStripe(secretValue) {
-  return new Stripe(secretValue);
-}
-
-function appOrigin(rawOrigin) {
-  if (typeof rawOrigin === 'string' && /^https?:\/\//i.test(rawOrigin)) {
-    return rawOrigin.replace(/\/$/, '');
-  }
-  return 'https://mykappacard.com';
-}
+const resendApiKey = defineSecret('RESEND_API_KEY');
 
 /**
- * Authenticated callable: create a Stripe Checkout Session for Basic ($9.99).
- * Client redirects to the returned `url`.
+ * Hourly: send end-of-day Brothers recap emails for members in their local 8pm hour
+ * who met at least one brother via QR today (and have not opted out).
  */
-exports.createCheckoutSession = onCall(
+exports.sendBrothersRecapEmails = onSchedule(
   {
-    secrets: [stripeSecretKey],
+    schedule: 'every 1 hours',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+    secrets: [resendApiKey],
+  },
+  async () => {
+    const db = getFirestore();
+    const summary = await runBrothersRecapBatch(db, resendApiKey.value(), { force: false });
+    console.log('Brothers recap batch', summary);
+  }
+);
+
+/**
+ * Callable QA helper: send a recap for the signed-in user now.
+ * Ignores the 8pm window but still requires today’s meets and enabled preference.
+ */
+exports.sendBrothersRecapNow = onCall(
+  {
+    secrets: [resendApiKey],
     region: 'us-central1',
   },
   async (request) => {
     if (!request.auth?.uid) {
-      throw new HttpsError('unauthenticated', 'Sign in to purchase Basic.');
+      throw new HttpsError('unauthenticated', 'Sign in to send a test recap.');
     }
-
-    const uid = request.auth.uid;
-    const email = request.auth.token.email || undefined;
     const db = getFirestore();
-    const userRef = db.collection('users').doc(uid);
-    const userSnap = await userRef.get();
-
-    if (!userSnap.exists) {
-      throw new HttpsError('failed-precondition', 'Complete your profile before purchasing.');
-    }
-
-    const user = userSnap.data() || {};
-    if (user.admin || user.tier === 'basic' || user.tier === 'premium') {
-      throw new HttpsError('already-exists', 'Your account is already unlocked.');
-    }
-
-    const successPath =
-      typeof request.data?.successPath === 'string' && request.data.successPath.startsWith('/')
-        ? request.data.successPath
-        : '/upgrade/success';
-    const cancelPath =
-      typeof request.data?.cancelPath === 'string' && request.data.cancelPath.startsWith('/')
-        ? request.data.cancelPath
-        : '/pricing';
-
-    const origin = appOrigin(request.data?.origin || request.rawRequest?.headers?.origin);
-    const stripe = getStripe(stripeSecretKey.value());
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: email,
-      client_reference_id: uid,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            unit_amount: BASIC_AMOUNT_CENTS,
-            product_data: {
-              name: BASIC_PRODUCT_NAME,
-              description:
-                'One-time unlock: branded Kappa Card + QR, live public page, and member invites.',
-            },
-          },
-        },
-      ],
-      metadata: {
-        firebaseUid: uid,
-        product: 'basic',
-      },
-      success_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}${cancelPath}`,
+    const result = await runBrothersRecapForUid(db, resendApiKey.value(), request.auth.uid, {
+      force: true,
     });
-
-    await userRef.set(
-      {
-        stripeCheckoutSessionId: session.id,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-
+    if (result.status === 'missing') {
+      throw new HttpsError('not-found', 'Profile not found.');
+    }
+    if (result.status === 'error') {
+      throw new HttpsError(
+        'internal',
+        result.message || 'Email provider rejected the send. Check Resend logs.'
+      );
+    }
     return {
-      url: session.url,
-      sessionId: session.id,
+      status: result.status,
+      to: result.to || null,
+      resendId: result.resendId || null,
     };
   }
 );
 
-/**
- * Stripe webhook: on checkout.session.completed, set users/{uid}.tier = basic.
- * Configure endpoint to this function URL with `checkout.session.completed`.
- */
-exports.stripeWebhook = onRequest(
-  {
-    secrets: [stripeSecretKey, stripeWebhookSecret],
-    region: 'us-central1',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).send('Method Not Allowed');
-      return;
-    }
+/* Inaugural 100 free Basic, then paid Checkout. */
+Object.assign(exports, {
+  claimFoundingBasic: require('./foundingPromo').claimFoundingBasic,
+  getFoundingPromoStatus: require('./foundingPromo').getFoundingPromoStatus,
+  setInauguralExclusion: require('./foundingPromo').setInauguralExclusion,
+});
 
-    const stripe = getStripe(stripeSecretKey.value());
-    const signature = req.headers['stripe-signature'];
-
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.rawBody,
-        signature,
-        stripeWebhookSecret.value()
-      );
-    } catch (err) {
-      console.error('Webhook signature verification failed', err);
-      res.status(400).send(`Webhook Error: ${err.message}`);
-      return;
-    }
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const uid =
-        session.metadata?.firebaseUid ||
-        session.client_reference_id ||
-        null;
-
-      if (!uid) {
-        console.error('Checkout session missing firebaseUid', session.id);
-        res.status(400).send('Missing firebaseUid');
-        return;
-      }
-
-      const db = getFirestore();
-      const paymentRef = db.collection('payments').doc(session.id);
-      const userRef = db.collection('users').doc(uid);
-
-      await db.runTransaction(async (tx) => {
-        const existing = await tx.get(paymentRef);
-        if (existing.exists) {
-          return;
-        }
-
-        tx.set(paymentRef, {
-          sessionId: session.id,
-          userId: uid,
-          amountTotal: session.amount_total ?? BASIC_AMOUNT_CENTS,
-          currency: session.currency ?? 'usd',
-          customerEmail: session.customer_details?.email || session.customer_email || null,
-          paymentStatus: session.payment_status || 'paid',
-          product: 'basic',
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        tx.set(
-          userRef,
-          {
-            tier: 'basic',
-            stripeCheckoutSessionId: session.id,
-            stripeCustomerId: session.customer || null,
-            unlockedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      });
-    }
-
-    res.json({ received: true });
-  }
-);
+/* Stripe Checkout + webhook (requires STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET). */
+Object.assign(exports, require('./stripePayments'));

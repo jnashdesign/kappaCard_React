@@ -37,6 +37,31 @@
   max-width: 34rem;
 }
 
+.pricing-inaugural {
+  margin: 0;
+  max-width: 34rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.pricing-inaugural.open {
+  background: color-mix(in srgb, var(--crimson) 10%, transparent);
+  color: var(--crimson-deep);
+  border: 1px solid color-mix(in srgb, var(--crimson) 22%, transparent);
+}
+
+.pricing-inaugural.closed {
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
+}
+
+.pricing-inaugural strong {
+  font-weight: 700;
+}
+
 .pricing-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.85fr);
@@ -143,14 +168,24 @@
   flex-wrap: wrap;
 }
 
+.pricing-amount-was {
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 3.2vw, 1.85rem);
+  font-weight: 600;
+  line-height: 1;
+  color: color-mix(in srgb, #fff8f0 55%, transparent);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
 .pricing-amount strong {
   font-family: var(--font-display);
-  font-size: clamp(4.5rem, 6vw, 3.1rem);
+  font-size: clamp(2.5rem, 6vw, 3.1rem);
   line-height: 1;
   font-weight: 700;
 }
 
-.pricing-amount span {
+.pricing-amount span:not(.pricing-amount-was) {
   color: color-mix(in srgb, #fff8f0 72%, transparent);
   font-size: 1rem;
 }

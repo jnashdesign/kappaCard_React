@@ -15,9 +15,12 @@ import { recordPublicCardEngagement } from '../lib/userStats';
 import { cardSurfaceBackground, isUsablePhotoUrl } from '../lib/photos';
 import { formatUsPhone, phoneDigits } from '../lib/phone';
 import { toPublicProfile } from '../lib/privacy';
+import { isInauguralMember, inauguralSlotOf } from '../lib/foundingPromo';
 import { publicSocialLinks, type SocialNetwork } from '../lib/social';
 import { downloadVCard, formatInviter } from '../lib/vcard';
 import type { UserProfile } from '../types';
+import ChapterNameLink from '../components/ChapterNameLink';
+import PageMeta, { DEFAULT_OG_IMAGE } from '../components/PageMeta';
 import './PublicCardPage.css';
 
 function initialsFromName(name: string): string {
@@ -331,8 +334,31 @@ export default function PublicCardPage() {
     });
   }, [loading, user, visitSource, saveContact]);
 
-  if (loading) return <div className="panel">Loading card…</div>;
-  if (error && !user) return <div className="panel error">{error}</div>;
+  if (loading) {
+    return (
+      <>
+        <PageMeta
+          title="Kappa Card"
+          description="Live Kappa Card profile — scan to save contact info."
+          path={username ? `/card/${username}` : '/'}
+        />
+        <div className="panel">Loading card…</div>
+      </>
+    );
+  }
+  if (error && !user) {
+    return (
+      <>
+        <PageMeta
+          title="Card not found — Kappa Card"
+          description="This Kappa Card profile could not be found."
+          path={username ? `/card/${username}` : '/'}
+          noIndex
+        />
+        <div className="panel error">{error}</div>
+      </>
+    );
+  }
   if (!user) return null;
 
   const publicUser = toPublicProfile(user);
@@ -343,6 +369,21 @@ export default function PublicCardPage() {
       : null;
   const heroBg = cardSurfaceBackground(bgUrl);
   const inviterUsername = user.invitedByUsername || resolvedInviter?.invitedByUsername;
+  const chapterYear = [publicUser.chapter, publicUser.initiationYear]
+    .filter(Boolean)
+    .join(' · ');
+  const cardTitle = `${publicUser.name || 'Brother'} — Kappa Card`;
+  const cardDescription = [
+    publicUser.name,
+    chapterYear,
+    'Share complete contact info with a single scan on Kappa Card.',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const cardImage =
+    showPhoto && publicUser.profilePicture
+      ? publicUser.profilePicture
+      : DEFAULT_OG_IMAGE;
 
   const detailRows: ReactNode[] = [];
   if (publicUser.email) {
@@ -367,6 +408,20 @@ export default function PublicCardPage() {
 
   return (
     <section className="public-card-page" data-visit-source={visitSource}>
+      <PageMeta
+        title={cardTitle}
+        description={cardDescription}
+        path={`/card/${publicUser.username || username}`}
+        image={cardImage}
+        imageAlt={`${publicUser.name || 'Brother'} on Kappa Card`}
+        person={{
+          name: publicUser.name || 'Brother',
+          username: publicUser.username || username,
+          chapter: publicUser.chapter,
+          initiationYear: publicUser.initiationYear,
+          image: showPhoto ? publicUser.profilePicture : undefined,
+        }}
+      />
       <article
         className={`public-card-hero${bgUrl ? ' public-card-hero--custom-bg' : ''}`}
         style={heroBg}
@@ -401,8 +456,15 @@ export default function PublicCardPage() {
           </div>
 
           <h1 className="public-card-name">{publicUser.name}</h1>
+          {isInauguralMember(user) && (
+            <p className="public-card-inaugural">
+              Inaugural 100
+              {inauguralSlotOf(user) ? ` · #${inauguralSlotOf(user)}` : ''}
+            </p>
+          )}
           <p className="public-card-chapter">
-            {publicUser.chapter} · {publicUser.initiationYear}
+            <ChapterNameLink chapter={publicUser.chapter} className="public-card-chapter-link" />
+            {publicUser.initiationYear ? ` · ${publicUser.initiationYear}` : ''}
           </p>
           {publicUser.occupation && (
             <p className="public-card-role">{publicUser.occupation}</p>

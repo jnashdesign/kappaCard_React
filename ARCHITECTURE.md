@@ -176,6 +176,8 @@ Phase 1 (deferred): append-only `analyticsEvents` + Cloud Function rollups if vo
 
 Account deletion writes an `accountDeletions` row for churn reporting before wiping the member’s data.
 
+**Brothers recap email:** Resend + scheduled Cloud Function `sendBrothersRecapEmails` (hourly). Around **8:00 PM local** (`users.timezone`, default `America/Chicago`) when the member had QR meets that day and has not opted out (`emailPrefs.brothersRecapEnabled`). Deep links to `/brothers/{subjectUserId}`. Preference on Profile. Secret `RESEND_API_KEY`. QA callable `sendBrothersRecapNow`.
+
 ---
 
 ## 13. Security model (summary)
@@ -201,7 +203,7 @@ npm run build
 firebase deploy --only hosting,firestore,functions --project kappacards-07212025
 ```
 
-Hosting serves `dist/`. Prefer deploying **firestore** (rules + indexes) when Encounter list indexes change. Stripe secrets must be set before functions that depend on them succeed.
+Hosting serves `dist/`. Prefer deploying **firestore** (rules + indexes) when Encounter list indexes change. Stripe and Resend secrets must be set before related functions succeed.
 
 ---
 

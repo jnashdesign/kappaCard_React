@@ -6,6 +6,7 @@ import {
   setInviteRequestStatus,
 } from '../lib/inviteRequests';
 import { listAccountDeletions, listAllInvites, listUsers, setUserAdmin, setUserTier } from '../lib/users';
+import { isInauguralMember, inauguralSlotOf, setInauguralExclusion } from '../lib/foundingPromo';
 import { useEffect, useState } from 'react';
 import type {
   AccountDeletion,
@@ -77,6 +78,23 @@ export default function AdminPage() {
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update tier.');
+    }
+  }
+
+  async function onToggleInauguralExclude(user: UserProfile) {
+    setError(null);
+    setMessage(null);
+    try {
+      const next = !user.excludeFromInaugural;
+      await setInauguralExclusion(user.id, next);
+      await refresh();
+      setMessage(
+        next
+          ? `${user.name} excluded from Inaugural 100 (test/staff). Badge cleared if present.`
+          : `${user.name} can count toward Inaugural 100 again.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update Inaugural exclusion.');
     }
   }
 
@@ -221,6 +239,10 @@ export default function AdminPage() {
                 <strong>
                   {user.name} {user.admin ? '· ADMIN' : ''}
                   {user.activatedAt ? ' · Activated' : ''}
+                  {isInauguralMember(user)
+                    ? ` · Inaugural${inauguralSlotOf(user) ? ` #${inauguralSlotOf(user)}` : ''}`
+                    : ''}
+                  {user.excludeFromInaugural ? ' · Excluded from Inaugural' : ''}
                 </strong>
                 <span className="muted">
                   @{user.username} · {user.email} · invited by @{user.invitedByUsername || '—'}
@@ -244,6 +266,16 @@ export default function AdminPage() {
                     onClick={() => void onToggleAdmin(user)}
                   >
                     {user.admin ? 'Revoke admin' : 'Make admin'}
+                  </button>
+                  <button
+                    style={{ margin: '52px 10px 25px 10px', borderRadius: '10px !important' }}
+                    type="button"
+                    className="secondary"
+                    onClick={() => void onToggleInauguralExclude(user)}
+                  >
+                    {user.excludeFromInaugural
+                      ? 'Count toward Inaugural 100'
+                      : 'Exclude from Inaugural 100'}
                   </button>
                 </div>
               </div>

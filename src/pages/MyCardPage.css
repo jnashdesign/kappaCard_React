@@ -46,6 +46,20 @@
   font-size: 0.92rem;
 }
 
+.card-frame-inaugural {
+  margin: 0.2rem 0 0.15rem;
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold) 65%, white);
+  background: color-mix(in srgb, var(--gold) 24%, transparent);
+  color: #fff8f0;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .card-frame-qr {
   display: grid;
   place-items: center;

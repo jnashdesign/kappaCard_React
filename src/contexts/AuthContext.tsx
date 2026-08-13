@@ -19,14 +19,40 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
 import { claimAnonymousEncounters } from '../lib/encounters';
+import { claimFoundingBasic } from '../lib/foundingPromo';
 import {
   createUserProfile,
   deleteMyAccount,
+  ensureUserTimezone,
   getUserById,
   updateUserProfile,
 } from '../lib/users';
 import { recordSessionLogin } from '../lib/userStats';
 import type { MembershipTier, UserProfile } from '../types';
+
+/** Best-effort founding-100 grant after a free-tier signup. */
+async function maybeClaimFoundingBasic(
+  created: UserProfile
+): Promise<UserProfile> {
+  if (
+    created.admin ||
+    created.excludeFromInaugural ||
+    created.tier === 'basic' ||
+    created.tier === 'premium'
+  ) {
+    return created;
+  }
+  try {
+    const result = await claimFoundingBasic();
+    if (result.status === 'granted' || result.status === 'already') {
+      const refreshed = await getUserById(created.id);
+      return refreshed || created;
+    }
+  } catch {
+    // Promo may be exhausted or functions offline — leave as free for Checkout.
+  }
+  return created;
+}
 
 interface SignUpInput {
   email: string;
@@ -83,6 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const next = await getUserById(user.uid);
           setProfile(next);
           if (next) {
+            void ensureUserTimezone(user.uid, next.timezone)
+              .then((timezone) => {
+                if (!next.timezone) {
+                  setProfile((prev) => (prev ? { ...prev, timezone } : prev));
+                }
+              })
+              .catch(() => undefined);
             void recordSessionLogin(user.uid)
               .then(() => refreshProfile())
               .catch(() => undefined);
@@ -119,7 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       inviteCode: input.inviteCode,
       tier: 'free',
     });
-    setProfile(created);
+    const profileAfterPromo = await maybeClaimFoundingBasic(created);
+    setProfile(profileAfterPromo);
     void claimAnonymousEncounters(credential.user.uid).catch(() => undefined);
   }, []);
 
@@ -148,7 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         inviteCode: input.inviteCode,
         tier: 'free' as MembershipTier,
       });
-      setProfile(created);
+      const profileAfterPromo = await maybeClaimFoundingBasic(created);
+      setProfile(profileAfterPromo);
       void claimAnonymousEncounters(auth.currentUser.uid).catch(() => undefined);
     },
     []

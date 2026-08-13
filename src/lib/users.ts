@@ -92,6 +92,21 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
     invitedByInitiationYear: data.invitedByInitiationYear,
     inviteCode: data.inviteCode ?? '',
     tier: (data.tier as MembershipTier) ?? 'free',
+    inauguralMember: Boolean(data.inauguralMember || data.foundingMember),
+    inauguralSlot:
+      typeof data.inauguralSlot === 'number'
+        ? data.inauguralSlot
+        : typeof data.foundingSlot === 'number'
+          ? data.foundingSlot
+          : undefined,
+    foundingMember: Boolean(data.foundingMember || data.inauguralMember),
+    foundingSlot:
+      typeof data.foundingSlot === 'number'
+        ? data.foundingSlot
+        : typeof data.inauguralSlot === 'number'
+          ? data.inauguralSlot
+          : undefined,
+    excludeFromInaugural: Boolean(data.excludeFromInaugural),
     admin: Boolean(data.admin),
     stats: mapUserStats(data),
     profileCompletedAt:
@@ -107,9 +122,47 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
       typeof data.firstContactDownloadedAt === 'string'
         ? data.firstContactDownloadedAt
         : undefined,
+    timezone: typeof data.timezone === 'string' && data.timezone.trim() ? data.timezone.trim() : undefined,
+    emailPrefs: mapEmailPrefs(data.emailPrefs),
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() ?? data.updatedAt ?? new Date().toISOString(),
   };
+}
+
+function mapEmailPrefs(raw: unknown): UserProfile['emailPrefs'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const data = raw as Record<string, unknown>;
+  const prefs: NonNullable<UserProfile['emailPrefs']> = {};
+  if (typeof data.brothersRecapEnabled === 'boolean') {
+    prefs.brothersRecapEnabled = data.brothersRecapEnabled;
+  }
+  if (typeof data.lastBrothersRecapDate === 'string') {
+    prefs.lastBrothersRecapDate = data.lastBrothersRecapDate;
+  }
+  return Object.keys(prefs).length ? prefs : undefined;
+}
+
+/** Browser IANA timezone, or America/Chicago fallback. */
+export function detectBrowserTimezone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && typeof tz === 'string' && tz.length >= 3 && tz.length <= 64) return tz;
+  } catch {
+    // ignore
+  }
+  return 'America/Chicago';
+}
+
+/** Persist timezone once when missing (login / profile load). */
+export async function ensureUserTimezone(userId: string, existing?: string | null): Promise<string> {
+  if (existing?.trim()) return existing.trim();
+  const timezone = detectBrowserTimezone();
+  await setDoc(
+    doc(requireDb(), 'users', userId),
+    { timezone, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
+  return timezone;
 }
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
@@ -440,6 +493,14 @@ export async function updateUserProfile(
   }
   if (safeUpdates.email !== undefined) payload.email = safeUpdates.email;
   if (safeUpdates.inviteCode !== undefined) payload.inviteCode = safeUpdates.inviteCode;
+  if (safeUpdates.timezone !== undefined) {
+    const tz = typeof safeUpdates.timezone === 'string' ? safeUpdates.timezone.trim() : '';
+    payload.timezone = tz || deleteField();
+  }
+  // Client may only toggle brothersRecapEnabled — lastBrothersRecapDate is server-owned
+  if (safeUpdates.emailPrefs && typeof safeUpdates.emailPrefs.brothersRecapEnabled === 'boolean') {
+    payload['emailPrefs.brothersRecapEnabled'] = safeUpdates.emailPrefs.brothersRecapEnabled;
+  }
 
   if (safeUpdates.username) {
     const normalized = normalizeUsername(safeUpdates.username);

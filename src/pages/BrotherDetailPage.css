@@ -60,6 +60,18 @@
   color: var(--muted);
 }
 
+.brother-detail-chapter-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--crimson) 35%, transparent);
+  text-underline-offset: 0.15em;
+}
+
+.brother-detail-chapter-link:hover {
+  color: var(--crimson-deep);
+  text-decoration-color: var(--crimson);
+}
+
 .brother-detail-badges {
   display: flex;
   flex-wrap: wrap;
@@ -117,6 +129,28 @@
 .brother-privacy-note {
   margin: 0;
   font-size: 0.9rem;
+}
+
+.brother-event-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: -0.35rem;
+}
+
+.brother-event-chip {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--crimson) 20%, transparent);
+  background: white;
+  color: var(--crimson-deep);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  text-align: left;
 }
 
 .brother-detail-form label {

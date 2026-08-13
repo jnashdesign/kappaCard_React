@@ -17,7 +17,15 @@ service cloud.firestore {
 
     function notChangingPrivileges() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['admin', 'tier']);
+        .hasAny([
+          'admin',
+          'tier',
+          'inauguralMember',
+          'inauguralSlot',
+          'foundingMember',
+          'foundingSlot',
+          'excludeFromInaugural',
+        ]);
     }
 
     // Anonymous/public viewers may bump engagement counters on a profile.
@@ -126,6 +134,12 @@ service cloud.firestore {
     // Written only by Admin SDK (Stripe webhook). Clients cannot read/write.
     match /payments/{paymentId} {
       allow read, write: if false;
+    }
+
+    // Launch promo counter (founding 100). Public read for countdown; Admin SDK writes.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     /**

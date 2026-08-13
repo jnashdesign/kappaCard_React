@@ -127,6 +127,42 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 Until functions + secrets are live, checkout shows a friendly error and admins can still grant Basic manually.
 
+### Inaugural 100 (free → paid)
+
+First **100** unlocked member accounts get Basic free as **Inaugural** members; account **101+** pays via Stripe.
+
+- Counter: `config/foundingPromo` (`limit`, `claimed`, `enabled`) — public read, Admin SDK write
+- Callables: `claimFoundingBasic`, `getFoundingPromoStatus`, `setInauguralExclusion`
+- Signup auto-claims a spot when the new profile is still `free`
+- `/pricing` shows remaining Inaugural spots; Checkout is blocked while free spots remain
+- Public + My Card show an **Inaugural 100** badge (with slot # when available)
+- Admin → Members: **Exclude from Inaugural 100** for test/staff accounts (clears badge, frees the slot, keeps tier)
+- Admin complimentary invites (`grantsBasic`) still work and do **not** consume Inaugural spots
+
+## Brothers recap email (Resend)
+
+End-of-day digests when a member met brothers via QR that day.
+
+1. Create a [Resend](https://resend.com) account and verify sending domain `recap.mykappacard.com` (DNS SPF/DKIM). Default From is `Kappa Card <noreply@recap.mykappacard.com>`.
+2. Set the API key:
+
+```bash
+firebase functions:secrets:set RESEND_API_KEY --project kappacards-07212025
+# paste re_...
+```
+
+3. Deploy functions (includes hourly `sendBrothersRecapEmails` + callable `sendBrothersRecapNow`):
+
+```bash
+firebase deploy --only functions --project kappacards-07212025
+```
+
+Only `RESEND_API_KEY` is required for Brothers recap. Stripe Checkout is in `functions/stripePayments.js` and loaded from `functions/index.js` once `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set.
+
+Optional env overrides on the function: `KAPPACARD_APP_ORIGIN`, `KAPPACARD_RECAP_FROM`.
+
+Members control the preference under **My Profile → Email reminders**. Admins can tap **Send test recap now** on that screen.
+
 ## Deploy
 
 ```bash

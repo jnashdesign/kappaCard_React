@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import PageMeta from '../components/PageMeta';
 import { useAuth } from '../contexts/AuthContext';
 import { canUseCardFeatures } from '../lib/users';
 import './LandingPage.css';
@@ -7,12 +8,12 @@ export default function LandingPage() {
   const { profile, configured } = useAuth();
 
   const primaryCta = profile ? (
-    <Link style={{color: 'white', backgroundColor: 'var(--crimson)'}} className="button primary" to="/my-card">
+    <Link className="button primary" to="/my-card">
       Go to My Card
     </Link>
   ) : (
     <Link className="button primary" to="/request-invite">
-      Get started
+      Request An Invite
     </Link>
   );
 
@@ -30,12 +31,12 @@ export default function LandingPage() {
 
   return (
     <div className="landing">
-      <section className="landing-hero" aria-label="Kappa Card introduction">
+      <PageMeta path="/" />
+      <section className="landing-hero full-width" aria-label="Kappa Card introduction">
         <div className="landing-hero-copy">
-          <h1 className="landing-brand">Never Forget A Brother Again</h1>
-          <p className="landing-headline">Make lasting connections in less than 30 seconds.</p>
-          <p className="landing-lede">
-          Skip the awkward exchange of phone numbers and social media handles. <br/><br/>Share your complete contact info with a single&nbsp;scan.
+          <h1 className="landing-brand">Never Forget A Brother&nbsp;Again</h1>
+          <p className="landing-headline">Make lasting connections in less than 30&nbsp;seconds.</p>
+          <p className="landing-lede">Skip the awkward exchange of phone numbers, email addresses and social media handles.<br/><br/><span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Share everything with one scan — and actually remember who you&nbsp;met.</span>
           </p>
           <div className="landing-actions">
             {primaryCta}
@@ -49,10 +50,10 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="landing-hero-visual" aria-hidden="true">
+        <div className="landing-hero-visual mobile-only" aria-hidden="true">
           <img
             className="landing-phone"
-            src="/card_phone.png"
+            src="/kappaCard_intraction_mobile.png"
             alt="Mockup of a Kappa Card and contact information on a phone"
           />
         </div>
@@ -60,29 +61,26 @@ export default function LandingPage() {
 
       <section className="landing-section">
         <div className="landing-section-header">
-          <h2>Built for brothers</h2>
-          <p>Professional contact sharing with privacy and accountability in mind.</p>
+          <h2>Perfect For Hallway Conversations</h2>
+          <p>One scan. Always current. Not lost in your camera roll.</p>
         </div>
         <div className="landing-points">
           <article className="landing-point">
-            <h3>Always Up to Date</h3>
+            <h3>Share Everything In One Scan</h3>
             <p>
-              Your QR links to a live profile URL. Update your phone or job once — every scan stays
-              current.
+            Show someone your card. They open your live page and save you to Contacts — phone, email, socials, photo without needing an app.
             </p>
           </article>
           <article className="landing-point">
-            <h3>Share Only What You Choose</h3>
+            <h3>Your info stays up to date</h3>
             <p>
-              Name, chapter, and initiation year stay public. Everything else can be Public or
-              Private.
+            Change your number or job? Every future scan stays current — unlike a screenshot or paper card.
             </p>
           </article>
           <article className="landing-point">
-            <h3>A Trusted Brotherhood</h3>
+            <h3>Remember who you met</h3>
             <p>
-              Every member is tied to who invited them — keeping the network intentional, not open
-              to anyone with a link.
+            Brothers you've scanned are saved live in one list — with the event and a note, so "who was that?"" doesn't happen later.
             </p>
           </article>
         </div>
@@ -90,34 +88,50 @@ export default function LandingPage() {
 
       <section className="landing-section">
         <div className="landing-section-header">
-          <h2>How it works</h2>
-          <p>Invite, card, scan — then actually remember who you met.</p>
+          <h2>Build A Lasting Connection</h2>
+          <p>Three steps. No app required for the brother scanning you.</p>
         </div>
         <ol className="landing-steps">
           <li>
-            <h3>Receive an Invite</h3>
-            <p>Signup requires a member invite, so the network stays accountable.</p>
+            <h3>Create your card</h3>
+            <p>Add whatever details you want to share with brothers you meet.</p>
           </li>
           <li>
-            <h3>Create Your Card</h3>
-            <p>Add your details and choose what’s public vs private on your card.</p>
+            <h3>Share your QR</h3>
+            <p>Save the card to your Photos or show it on your phone.</p>
           </li>
           <li>
-            <h3>Save to Photos</h3>
-            <p>Download an image of your QR code that always points to your live page.</p>
-          </li>
-          <li>
-            <h3>Meet &amp; Connect</h3>
-            <p>Scanners open your page and save you to their phone — no app required.</p>
+            <h3>You're Good To Go</h3>
+            <p>You're added to their Contacts, they're added to your Brothers.</p>
           </li>
         </ol>
       </section>
 
 
+      <section className="landing-section landing-trust-strip">
+      <h2>Accountability &amp; Privacy</h2>
+      <div className="landing-trust-strip-content">
+        <div className="landing-trust-strip-content-text accountibility">
+        <img src="/accountability.png" alt="Accountability in the card." />
+        <div>
+        <h3>Invite-Only Membership</h3>
+        <p>Every brother's card ties them to who invited&nbsp;them.</p>
+        </div>
+        </div>
+        <div className="landing-trust-strip-content-text privacy">
+        <img src="/privacy.png" alt="Work place in the profile." />
+        <div><h3>Choose What You Share</h3>
+        <p>Only name, chapter, and year are required to be&nbsp;public.
+        </p>
+        </div>
+        </div>
+        </div>
+      </section>
+
       <section className="landing-section landing-close">
       <div className="landing-cta-ad-content">
-        <h2>Create&nbsp;it&nbsp;once. Keep&nbsp;it&nbsp;forever. Update&nbsp;it&nbsp;anytime.</h2>
-        <p> Join a growing network of brothers making every introduction a lasting connection.
+        <h2>Create&nbsp;it&nbsp;once. Keep&nbsp;it&nbsp;forever. Update&nbsp;anytime.</h2>
+        <p>Turn every introduction into a lasting connection.
         </p>
         </div>
         <div className="landing-cta-ad-content landing-actions">

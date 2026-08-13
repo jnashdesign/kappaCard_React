@@ -11,6 +11,7 @@ import {
 } from '../lib/photos';
 import { profilePhotoToDataUrl } from '../lib/storage';
 import { canUseCardFeatures, getUserById } from '../lib/users';
+import { isInauguralMember, inauguralSlotOf } from '../lib/foundingPromo';
 import { recordCardImageDownload } from '../lib/userStats';
 import { formatInviter } from '../lib/vcard';
 import './MyCardPage.css';
@@ -204,6 +205,12 @@ export default function MyCardPage() {
             )}
             <div style={{ minWidth: 0 }}>
               <h2 className="card-frame-name">{profile.name}</h2>
+              {isInauguralMember(profile) && (
+                <div className="card-frame-inaugural">
+                  Inaugural 100
+                  {inauguralSlotOf(profile) ? ` · #${inauguralSlotOf(profile)}` : ''}
+                </div>
+              )}
               <div className="card-frame-meta">
                 {profile.chapter} {profile.initiationYear}
               </div>

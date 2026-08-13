@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import PageMeta from '../components/PageMeta';
 import chapters from '../data/chapters';
 import { useAuth } from '../contexts/AuthContext';
 import { submitInviteRequest } from '../lib/inviteRequests';
@@ -49,6 +50,11 @@ export default function RequestInvitePage() {
   if (submitted) {
     return (
       <section className="stack" style={{ maxWidth: 560, margin: '0 auto' }}>
+        <PageMeta
+          title="Request an invite — Kappa Card"
+          description="Kappa Card is invite-only. Request an invite to create your branded card, live QR profile, and share contact info with a single scan."
+          path="/request-invite"
+        />
         <div className="panel stack">
           <h1 style={{ margin: 0 }}>Request received</h1>
           <p className="muted" style={{ margin: 0 }}>
@@ -65,6 +71,11 @@ export default function RequestInvitePage() {
 
   return (
     <section className="stack" style={{ maxWidth: 560, margin: '0 auto' }}>
+      <PageMeta
+        title="Request an invite — Kappa Card"
+        description="Kappa Card is invite-only. Request an invite to create your branded card, live QR profile, and share contact info with a single scan."
+        path="/request-invite"
+      />
       <div>
         <h1>Request an invite</h1>
         <p className="muted">

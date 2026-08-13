@@ -26,6 +26,14 @@ export interface UserStats {
   contactDownloads: number;
 }
 
+/** Email notification preferences (server stamps lastBrothersRecapDate). */
+export interface UserEmailPrefs {
+  /** Default true when omitted */
+  brothersRecapEnabled?: boolean;
+  /** Local YYYY-MM-DD of last successful Brothers recap send */
+  lastBrothersRecapDate?: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -57,6 +65,19 @@ export interface UserProfile {
   invitedByInitiationYear?: number;
   inviteCode: string;
   tier: MembershipTier;
+  /** True when Basic was unlocked via the Inaugural 100 free offer. */
+  inauguralMember?: boolean;
+  /** 1-based slot within the Inaugural 100. */
+  inauguralSlot?: number;
+  /** @deprecated Prefer inauguralMember */
+  foundingMember?: boolean;
+  /** @deprecated Prefer inauguralSlot */
+  foundingSlot?: number;
+  /**
+   * Admin flag: test / staff accounts that must not consume an Inaugural slot
+   * and must not show the Inaugural badge.
+   */
+  excludeFromInaugural?: boolean;
   admin: boolean;
   stats: UserStats;
   profileCompletedAt?: string;
@@ -64,6 +85,9 @@ export interface UserProfile {
   firstCardImageDownloadedAt?: string;
   firstCardViewedAt?: string;
   firstContactDownloadedAt?: string;
+  /** IANA timezone for scheduled emails (e.g. America/Chicago) */
+  timezone?: string;
+  emailPrefs?: UserEmailPrefs;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import PageMeta from '../components/PageMeta';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -58,6 +59,11 @@ export default function LoginPage() {
 
   return (
     <section className="stack" style={{ maxWidth: 480, margin: '0 auto' }}>
+      <PageMeta
+        title="Sign in — Kappa Card"
+        description="Sign in to Kappa Card to manage your branded card, QR link, Brothers list, and invites."
+        path="/login"
+      />
       <div>
         <h1>Sign In</h1>
         <p className="muted">Welcome back. Use email or Google.</p>

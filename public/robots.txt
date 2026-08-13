@@ -1,0 +1,19 @@
+# https://mykappacard.com/robots.txt
+User-agent: *
+Allow: /
+
+# Auth-only app areas — no value for search indexes
+Disallow: /admin
+Disallow: /complete-profile
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /my-card
+Disallow: /my-kard
+Disallow: /brothers
+Disallow: /collected
+Disallow: /met
+Disallow: /invites
+Disallow: /requests
+Disallow: /upgrade
+
+Sitemap: https://mykappacard.com/sitemap.xml

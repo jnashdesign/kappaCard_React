@@ -7,11 +7,23 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'og-image.png'],
+      // Keep crawler files out of the SPA navigation fallback
+      workbox: {
+        navigateFallbackDenylist: [/^\/robots\.txt$/, /^\/sitemap\.xml$/],
+      },
+      includeAssets: [
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'og-image.png',
+        'openGraph.png',
+        'robots.txt',
+        'sitemap.xml',
+      ],
       manifest: {
         name: 'Kappa Card',
         short_name: 'Kappa Card',
-        description: 'Share your fraternity contact card with a QR code.',
+        description:
+          'Make lasting connections in less than 30 seconds. Share complete contact info with a single scan — branded Kappa Card, QR, and live profile.',
         theme_color: '#6d0e0f',
         background_color: '#f3ebe0',
         display: 'standalone',

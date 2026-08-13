@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import PageMeta from '../components/PageMeta';
 import chapters from '../data/chapters';
 import { useAuth } from '../contexts/AuthContext';
 import { sanitizeUsernameInput, suggestUsernameFromName } from '../lib/username';
@@ -69,6 +70,11 @@ export default function SignupPage() {
 
   return (
     <section className="stack" style={{ maxWidth: 560, margin: '0 auto' }}>
+      <PageMeta
+        title="Create your account — Kappa Card"
+        description="Join Kappa Card with an invite code. Create your branded card, live QR profile, and start sharing contact info in seconds."
+        path="/signup"
+      />
       <div>
         <h1>Create your account</h1>
         <p className="muted">

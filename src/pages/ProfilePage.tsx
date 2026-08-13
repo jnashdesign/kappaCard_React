@@ -11,9 +11,11 @@ import {
 } from '../lib/privacy';
 import { uploadCardBackground, uploadProfilePhoto } from '../lib/storage';
 import { formatUsPhone } from '../lib/phone';
-import { clearCardBackground, clearProfilePhoto } from '../lib/users';
+import { requestBrothersRecapNow } from '../lib/brothersRecap';
+import { clearCardBackground, clearProfilePhoto, detectBrowserTimezone } from '../lib/users';
 import { sanitizeUsernameInput } from '../lib/username';
 import { formatInviter } from '../lib/vcard';
+import ChapterNameLink from '../components/ChapterNameLink';
 import './ProfilePage.css';
 
 function FieldRow({
@@ -99,6 +101,10 @@ export default function ProfilePage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [brothersRecapEnabled, setBrothersRecapEnabled] = useState(
+    profile?.emailPrefs?.brothersRecapEnabled !== false
+  );
+  const [recapTestBusy, setRecapTestBusy] = useState(false);
   const hydratedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -128,6 +134,7 @@ export default function ProfilePage() {
     const bg = isUsablePhotoUrl(profile.cardBackground) ? profile.cardBackground! : '';
     setBgPreviewUrl(bg);
     setBgFailed(false);
+    setBrothersRecapEnabled(profile.emailPrefs?.brothersRecapEnabled !== false);
   }, [profile]);
 
   if (!profile) return <div className="panel">Loading…</div>;
@@ -266,6 +273,10 @@ export default function ProfilePage() {
           tiktok: form.tiktok || undefined,
         },
         fieldPrivacy: privacy,
+        timezone: profile.timezone || detectBrowserTimezone(),
+        emailPrefs: {
+          brothersRecapEnabled,
+        },
       });
       setMessage(
         form.username !== profile.username
@@ -304,7 +315,12 @@ export default function ProfilePage() {
             <p className="profile-identity-eyebrow">Your Kappa Card profile</p>
             <h1>{displayName}</h1>
             <p className="profile-identity-meta">
-              {form.chapter || profile.chapter}
+              {(form.chapter || profile.chapter) && (
+                <ChapterNameLink
+                  chapter={form.chapter || profile.chapter}
+                  className="profile-chapter-link"
+                />
+              )}
               {(form.initiationYear || profile.initiationYear) &&
                 ` · ${form.initiationYear || profile.initiationYear}`}
             </p>
@@ -650,6 +666,58 @@ export default function ProfilePage() {
             />
           </FieldRow>
         </div>
+      </section>
+
+      <section className="panel profile-section">
+        <div className="profile-section-header">
+          <h2>Email reminders</h2>
+          <p>
+            Optional end-of-day email when you met brothers via QR that day — with links to add
+            private notes while it’s fresh. Never sent on days with no meetings.
+          </p>
+        </div>
+        <label className="profile-toggle-row">
+          <input
+            type="checkbox"
+            checked={brothersRecapEnabled}
+            onChange={(e) => setBrothersRecapEnabled(e.target.checked)}
+          />
+          <span>
+            Send me a Brothers recap email around 8:00 PM
+            {profile.timezone ? ` (${profile.timezone})` : ''}
+          </span>
+        </label>
+        {profile.admin && (
+          <button
+            type="button"
+            className="secondary"
+            style={{ marginTop: '0.75rem' }}
+            disabled={recapTestBusy || !brothersRecapEnabled}
+            onClick={() => {
+              void (async () => {
+                setRecapTestBusy(true);
+                setError(null);
+                setMessage(null);
+                try {
+                  const result = await requestBrothersRecapNow();
+                  setMessage(
+                    result.status === 'sent'
+                      ? result.to
+                        ? `Test recap sent to ${result.to} — check inbox/spam.`
+                        : 'Test recap sent — check your inbox.'
+                      : 'No recap sent (no QR meets today, already sent, or preference off).'
+                  );
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Could not send test recap.');
+                } finally {
+                  setRecapTestBusy(false);
+                }
+              })();
+            }}
+          >
+            {recapTestBusy ? 'Sending…' : 'Send test recap now (admin)'}
+          </button>
+        )}
       </section>
 
       <section className="panel profile-section profile-danger">

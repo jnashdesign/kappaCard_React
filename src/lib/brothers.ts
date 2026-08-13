@@ -282,6 +282,48 @@ export async function updateBrotherContext(
   await setDoc(brotherRef(uid, subjectId), payload, { merge: true });
 }
 
+/**
+ * Assign the same event name to many brother rows (user-confirmed bulk edit).
+ * Empty event clears the field on all selected rows.
+ */
+export async function assignEventToBrothers(
+  viewerId: string,
+  subjectUserIds: string[],
+  eventName: string
+): Promise<number> {
+  const uid = viewerId?.trim();
+  if (!uid) throw new Error('Viewer id is required.');
+
+  const ids = [...new Set(subjectUserIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return 0;
+
+  await Promise.all(ids.map((subjectId) => updateBrotherContext(uid, subjectId, { event: eventName })));
+  return ids.length;
+}
+
+/** Distinct event names from brother rows, most recently active first. */
+export function recentEventNamesFromBrothers(
+  brothers: BrotherRecord[],
+  limit = 8
+): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  const sorted = [...brothers].sort((a, b) =>
+    a.lastActivityAt < b.lastActivityAt ? 1 : -1
+  );
+
+  for (const row of sorted) {
+    const name = row.event?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+    if (names.length >= limit) break;
+  }
+  return names;
+}
+
 export async function removeBrother(viewerId: string, subjectUserId: string): Promise<void> {
   await deleteDoc(brotherRef(viewerId, subjectUserId));
 }

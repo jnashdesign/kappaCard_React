@@ -370,3 +370,89 @@ Deploys rules + composite index `viewerId` ASC + `timestamp` DESC (needed for Pe
 - Email/SMS open the device composers via `mailto:` / `sms:` with a prefilled signup URL (`/signup?invite=CODE`) — no backend mail/SMS provider.
 - Helpers in [`src/lib/inviteShare.ts`](src/lib/inviteShare.ts).
 
+## Session: Bulk assign event (2026-08-09)
+
+- Brothers list: **Assign event** enters multi-select; user picks brothers, opens sheet, chooses/types one event name, then confirms **Assign to N**.
+- Reuses existing `event` field via `assignEventToBrothers`; recent event names suggested from other brother rows (never auto-assigned from timing).
+- Brother detail also offers recent-event chips / datalist for single-record edits.
+
+## Session: Brothers end-of-day recap email (2026-08-09)
+
+- No prior transactional email stack — added **Resend** via Cloud Functions (`functions/brothersRecap.js`).
+- Profile: `timezone` (seeded from browser), `emailPrefs.brothersRecapEnabled` (default on), toggle under Email reminders; admin **Send test recap now** → `sendBrothersRecapNow`.
+- Scheduled `sendBrothersRecapEmails` hourly; sends in local 20:00 hour when QR meets exist that day; deep links to `/brothers/{subjectUserId}`; stamps `emailPrefs.lastBrothersRecapDate`.
+- Ops: verify domain in Resend, `firebase functions:secrets:set RESEND_API_KEY`, deploy functions.
+- **2026-08-10:** Test send failed with Resend `403 validation_error`: root `mykappacard.com` was not verified. Sending domain in Resend is **`recap.mykappacard.com`**; From updated to `Kappa Card <noreply@recap.mykappacard.com>`. Callable surfaces Resend’s `message` to the client.
+- Successful test: Resend `last_event: delivered` to profile `email` (`justin@jnashdev.com`), subject “You met 1 brother today” — easy to miss if checking a different inbox (e.g. Gmail login). User confirmed receipt; end-to-end recap email path is working.
+
+## Session: Elevator pitch refresh (2026-08-10)
+
+- Kept invite → live QR card → Add to Contacts core; sharpened memory beat for unified **Brothers** + optional end-of-day recap email (not lead with email).
+
+## Session: Stripe Checkout enabled (2026-08-11)
+
+- User set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`; enabled `stripePayments` export in `functions/index.js`.
+- Deployed `createCheckoutSession` + `stripeWebhook` (plus firestore rules). Test checkout via `/pricing` with `4242…`.
+- Checkout failed with Stripe Managed Payments requiring `tax_code`; fixed by `managed_payments.enabled=false` + `tax_code: txcd_10000000`, and clearer client errors.
+- User confirmed test card `4242…` unlocks Basic end-to-end; staying in Stripe Test mode until ready for live payments.
+
+## Session: Founding 100 free Basic (2026-08-11)
+
+- `config/foundingPromo` + callables `claimFoundingBasic` / `getFoundingPromoStatus`.
+- Auto-claim on signup for free-tier members; Pricing countdown; Stripe blocked while spots remain.
+- Existing Basic/Premium members seed `claimed` once so the counter starts honestly.
+
+## Session: Inaugural naming + badge + exclusions (2026-08-11)
+
+- User-facing rename from “founding” → **Inaugural 100**.
+- Badge on public card + My Card for `inauguralMember` (slot # when set).
+- Admin **Exclude from Inaugural 100** via `setInauguralExclusion` for test accounts (clears badge, decrements claimed).
+
+## Session: Chapter → Kappa Chapters link (2026-08-11)
+
+- Chapter names on public card, brother detail, and profile link to `https://kappachapters.com/?q={chapter}` in a new tab.
+
+## Session: robots.txt + sitemap for search indexing (2026-08-11)
+
+- Added [`public/robots.txt`](public/robots.txt): `Allow: /` for all bots; `Disallow` for auth-only paths (`/admin`, `/my-card`, `/brothers`, etc.).
+- Added [`public/sitemap.xml`](public/sitemap.xml) listing public marketing URLs (`/`, `/pricing`, `/signup`, `/request-invite`, `/login`).
+- Vite copies `public/` into `dist/` on build; Firebase Hosting serves those files before the SPA rewrite.
+- Hosting headers in [`firebase.json`](firebase.json) set correct `Content-Type` + short cache for `/robots.txt` and `/sitemap.xml`.
+- After deploy, verify `https://mykappacard.com/robots.txt` and submit the sitemap in Google Search Console.
+
+## Session: Meta descriptions + Open Graph (2026-08-11)
+
+- Hardened static SEO in [`index.html`](index.html): `robots`, aligned title/description with landing copy, and **unified** `og:image` + `twitter:image` on branded [`public/og-image.png`](public/og-image.png) (was split between `openGraph.png` / `og-image.png`).
+- Added [`src/components/PageMeta.tsx`](src/components/PageMeta.tsx) to update title/description/canonical/OG/Twitter per route.
+- Wired PageMeta on Landing, Pricing, Login, Signup, Request Invite, and Public Card (dynamic name/chapter; profile photo as share image when public).
+- PWA `includeAssets` now keeps both OG PNGs; manifest description matches site pitch.
+
+## Session: Deploy robots.txt / sitemap (2026-08-11)
+
+- Live `/robots.txt` and `/sitemap.xml` were returning SPA `index.html` because hosting hadn’t been redeployed after adding the files.
+- Built + deployed hosting; Firebase serves those static files before the `** → /index.html` rewrite.
+- PWA `navigateFallbackDenylist` excludes `/robots.txt` and `/sitemap.xml` so the service worker won’t treat them as app routes.
+
+## Session: Fill missing SEO meta (2026-08-11)
+
+- Expanded [`index.html`](index.html): `googlebot` rich-result hints, app / Apple web-app titles, sitemap link, `twitter:url`, SVG favicon.
+- Added Schema.org JSON-LD (`Organization`, `WebSite`, `WebApplication` + Offer at $9.99, `WebPage`).
+- [`PageMeta`](src/components/PageMeta.tsx) now updates robots/googlebot, Twitter URL, profile OG type, and JSON-LD per route; public cards emit `ProfilePage` + `Person`.
+- Aligned PWA manifest description with the site meta description (Google had been showing the older short manifest line).
+
+## Session: Landing hero full-bleed background (2026-08-11)
+
+- Hero gradient now breaks out of `.main`'s 960px column with `100vw` + `calc(50% - 50vw)` margins so the crimson background is edge-to-edge.
+- Inner copy/phone stay aligned to the same content width via matching horizontal padding.
+- Dropped hero border-radius/side borders for a true full-bleed look; `overflow-x: clip` on `.app-shell` avoids scrollbar from the breakout.
+
+## Session: Pre-customer launch checklist (2026-08-12)
+
+Captured a go/no-go list before sharing with potential customers. Product is invite-gated + Inaugural 100, so soft demos can ship before Stripe live mode; paid unlock still needs live keys when free spots end.
+
+**Must before any external share:** ship uncommitted work (hosting + functions + rules); run iPhone walkthrough (signup → card → QR → Add to Contacts → Brothers → invite); exclude test accounts from Inaugural; confirm Google Auth domains; confirm Resend domain; decide complimentary vs paywalled invites for first wave.
+
+**Before taking real money:** Stripe live keys + live webhook; Terms + Privacy pages; support contact; branded PWA icons; Search Console sitemap.
+
+**Trust / polish:** optional Cloud Function public profile projection (privacy currently UI-only); refund / “paid but no invite” policy; support email monitored.
+
