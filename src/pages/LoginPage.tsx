@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import { useAuth } from '../contexts/AuthContext';
+import { friendlyAuthError } from '../lib/authErrors';
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle, resetPassword, configured } = useAuth();
@@ -23,7 +24,7 @@ export default function LoginPage() {
       await signIn(email, password);
       navigate('/my-card');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed.');
+      setError(friendlyAuthError(err, 'Could not sign in. Check your email and password.'));
     } finally {
       setLoading(false);
     }
@@ -36,7 +37,7 @@ export default function LoginPage() {
       const result = await signInWithGoogle(invite);
       navigate(result === 'needs_profile' ? '/complete-profile' : '/my-card');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign in failed.');
+      setError(friendlyAuthError(err, 'Could not sign in with Google. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,9 @@ export default function LoginPage() {
       await resetPassword(email.trim());
       setMessage('Password reset email sent.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send reset email.');
+      setError(
+        friendlyAuthError(err, 'Could not send a reset email. Check the address and try again.')
+      );
     }
   }
 

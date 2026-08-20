@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import chapters from '../data/chapters';
 import { useAuth } from '../contexts/AuthContext';
+import { friendlyAuthError } from '../lib/authErrors';
 import { sanitizeUsernameInput, suggestUsernameFromName } from '../lib/username';
 
 export default function SignupPage() {
@@ -54,7 +55,7 @@ export default function SignupPage() {
       });
       navigate('/my-card');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed.');
+      setError(friendlyAuthError(err, 'Could not create your account. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,7 @@ export default function SignupPage() {
       const result = await signInWithGoogle(inviteCode.trim() || undefined);
       navigate(result === 'needs_profile' ? `/complete-profile?invite=${inviteCode}` : '/my-card');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign in failed.');
+      setError(friendlyAuthError(err, 'Could not sign in with Google. Try again.'));
     } finally {
       setLoading(false);
     }

@@ -16,8 +16,10 @@ import {
   signOut,
   updateProfile,
   type User,
+  type UserCredential,
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
+import { friendlyAuthError } from '../lib/authErrors';
 import { claimAnonymousEncounters } from '../lib/encounters';
 import { claimFoundingBasic } from '../lib/foundingPromo';
 import {
@@ -136,12 +138,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!auth) throw new Error('Firebase is not configured.');
-    await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      throw new Error(
+        friendlyAuthError(err, 'Could not sign in. Check your email and password.')
+      );
+    }
   }, []);
 
   const signUp = useCallback(async (input: SignUpInput) => {
     if (!auth) throw new Error('Firebase is not configured.');
-    const credential = await createUserWithEmailAndPassword(auth, input.email, input.password);
+    let credential: UserCredential;
+    try {
+      credential = await createUserWithEmailAndPassword(auth, input.email, input.password);
+    } catch (err) {
+      throw new Error(friendlyAuthError(err, 'Could not create your account. Try again.'));
+    }
     await updateProfile(credential.user, { displayName: input.name });
     const created = await createUserProfile(credential.user.uid, {
       email: input.email,
@@ -159,7 +172,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (_inviteCode?: string) => {
     if (!auth) throw new Error('Firebase is not configured.');
-    const result = await signInWithPopup(auth, googleProvider);
+    let result: UserCredential;
+    try {
+      result = await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      throw new Error(friendlyAuthError(err, 'Could not sign in with Google. Try again.'));
+    }
     const existing = await getUserById(result.user.uid);
     if (existing) {
       setProfile(existing);
@@ -191,7 +209,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (email: string) => {
     if (!auth) throw new Error('Firebase is not configured.');
-    await sendPasswordResetEmail(auth, email);
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (err) {
+      throw new Error(
+        friendlyAuthError(err, 'Could not send a reset email. Check the address and try again.')
+      );
+    }
   }, []);
 
   const logout = useCallback(async () => {

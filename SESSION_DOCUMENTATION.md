@@ -506,3 +506,10 @@ A friend’s QR scan was slow. Work focused on first paint and vCard photo cost.
 
 Storage rules now allow public read of `contact.*` when `fieldPrivacy.profilePicture` is not private. Deploy hosting + `syncPublicProfile` + storage rules together so scanners can read the new object.
 
+## Session: Friendly auth errors (2026-08-20)
+
+Wrong email/password was showing `Firebase: Error (auth/invalid-credential).` Members should never see SDK codes.
+
+- Shared mapper in [`src/lib/authErrors.ts`](src/lib/authErrors.ts) turns Auth codes into action-oriented copy (wrong password, email in use, cancelled Google popup, too many attempts, etc.).
+- Login, signup, Google sign-in, password reset, and account-deletion reauth all use it. App-specific errors (invite, username) still pass through unchanged.
+

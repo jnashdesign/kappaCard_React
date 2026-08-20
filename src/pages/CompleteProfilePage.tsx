@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import chapters from '../data/chapters';
 import { useAuth } from '../contexts/AuthContext';
+import { friendlyAuthError } from '../lib/authErrors';
 import { sanitizeUsernameInput, suggestUsernameFromName } from '../lib/username';
 
 export default function CompleteProfilePage() {
@@ -50,7 +51,7 @@ export default function CompleteProfilePage() {
       });
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not complete profile.');
+      setError(friendlyAuthError(err, 'Could not complete your profile. Try again.'));
     } finally {
       setLoading(false);
     }

@@ -33,6 +33,7 @@ import type {
   UserProfile,
 } from '../types';
 import { normalizeFieldPrivacy } from './privacy';
+import { friendlyAuthError } from './authErrors';
 import { sanitizePhotoUrl } from './photos';
 import { createInviteCode, normalizeUsername, validateUsername } from './username';
 import { EMPTY_USER_STATS, bumpOwnStat, isProfileComplete, mapUserStats } from './userStats';
@@ -862,15 +863,16 @@ export async function deleteMyAccount(
   try {
     await reauthenticateForSensitiveAction(authUser, options);
   } catch (err) {
-    const code =
-      err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
-    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-      throw new Error('Incorrect password. Try again.');
-    }
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-      throw new Error('Google confirmation was cancelled. Try again to delete your account.');
-    }
-    throw err instanceof Error ? err : new Error('Could not verify your identity.');
+    throw new Error(
+      friendlyAuthError(err, 'Could not verify your identity.', {
+        'auth/invalid-credential': 'Incorrect password. Try again.',
+        'auth/wrong-password': 'Incorrect password. Try again.',
+        'auth/popup-closed-by-user':
+          'Google confirmation was cancelled. Try again to delete your account.',
+        'auth/cancelled-popup-request':
+          'Google confirmation was cancelled. Try again to delete your account.',
+      })
+    );
   }
 
   // Log deletion for admin analytics before wiping identity (survives account removal)
@@ -935,13 +937,15 @@ export async function deleteMyAccount(
   try {
     await deleteUser(authUser);
   } catch (err) {
-    const code =
-      err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
-    if (code === 'auth/requires-recent-login') {
-      throw new Error(
-        'Your profile data was removed, but authentication could not be deleted. In Firebase Console → Authentication, delete this email manually, then contact support if needed.'
-      );
-    }
-    throw err instanceof Error ? err : new Error('Could not delete authentication account.');
+    throw new Error(
+      friendlyAuthError(
+        err,
+        'Could not delete authentication account. Contact support if this continues.',
+        {
+          'auth/requires-recent-login':
+            'Your profile data was removed, but authentication could not be deleted. In Firebase Console → Authentication, delete this email manually, then contact support if needed.',
+        }
+      )
+    );
   }
 }
