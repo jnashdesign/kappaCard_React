@@ -189,6 +189,13 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+.profile-identity-sites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+}
+
 .profile-privacy-note {
   margin: 0.15rem 0 0;
   font-size: 0.82rem;
@@ -315,6 +322,119 @@
   font-size: 0.92rem;
 }
 
+.profile-websites {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.profile-websites-empty {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.profile-website-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.profile-website-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--crimson) 12%, transparent);
+  background: color-mix(in srgb, var(--cream) 55%, white);
+}
+
+.profile-website-link {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.profile-website-title {
+  font-weight: 700;
+  color: var(--crimson);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-website-host {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-website-link:hover .profile-website-title {
+  text-decoration: underline;
+}
+
+.profile-website-composer {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.profile-website-remove {
+  justify-self: start;
+  flex-shrink: 0;
+  min-width: unset;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--danger);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.profile-website-remove:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 8%, white);
+}
+
+.profile-website-add {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: unset;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--crimson);
+  color: #fff8f0;
+  border-color: var(--crimson);
+}
+
+.profile-website-add span {
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.profile-website-add:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 720px) {
+  .profile-website-composer {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-website-add {
+    justify-self: start;
+  }
+}
+
 .profile-save-bar {
   position: sticky;
   bottom: 0.75rem;
@@ -353,6 +473,10 @@
   }
 
   .profile-identity-actions {
+    justify-content: center;
+  }
+
+  .profile-identity-sites {
     justify-content: center;
   }
 

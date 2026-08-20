@@ -60,6 +60,7 @@ flowchart TB
 
 ```mermaid
 erDiagram
+  users ||--o| publicProfiles : "syncPublicProfile projects"
   users ||--o{ usernames : "aliases resolve to"
   users ||--o{ invites : "creates as inviter"
   users ||--o{ collectedCards : "bookmarks"
@@ -79,6 +80,15 @@ erDiagram
     map stats
     map fieldPrivacy
     map socialMedia
+    array websites
+  }
+
+  publicProfiles {
+    string id PK
+    string name
+    string username
+    string email
+    string phone
   }
 
   usernames {
@@ -135,7 +145,8 @@ erDiagram
 
 | Path | Purpose |
 |------|---------|
-| `users/{uid}` | Member profile, tier, stats, privacy, inviter denorm |
+| `users/{uid}` | Private member profile, tier, stats, privacy, inviter denorm (owner/admin read) |
+| `publicProfiles/{uid}` | Public-safe card projection (Cloud Function sync; public read) |
 | `users/{uid}/collectedCards/{subjectUid}` | Brothers list row (QR meet and/or saved contact + private notes) |
 | `usernames/{slug}` | Public slug → uid (aliases for renames) |
 | `invites/{id}` | One-time and multi-use invite codes |
@@ -144,7 +155,7 @@ erDiagram
 | `accountDeletions/{id}` | Churn analytics after account wipe |
 | `payments/{sessionId}` | Stripe Checkout records (Admin SDK only) |
 
-**Storage (not Firestore):** `profile-pictures/{uid}/profile.*`, `profile-pictures/{uid}/background.*`.
+**Storage (not Firestore):** `profile-pictures/{uid}/profile.*` (card avatar), `profile-pictures/{uid}/contact.jpg` (320×320 vCard JPEG), `profile-pictures/{uid}/background.*` (public read gated by `fieldPrivacy`).
 
 ---
 
@@ -154,6 +165,7 @@ erDiagram
 erDiagram
   UserProfile ||--|| UserStats : embeds
   UserProfile ||--o| SocialMedia : embeds
+  UserProfile ||--o{ ProfileWebsite : embeds
   UserProfile ||--o| FieldPrivacy : embeds
   UserProfile ||--o{ BrotherRecord : "collectedCards subcollection"
 
@@ -201,6 +213,12 @@ erDiagram
     string tiktok
   }
 
+  ProfileWebsite {
+    string id
+    string title
+    string url
+  }
+
   FieldPrivacy {
     string email
     string phone
@@ -213,6 +231,7 @@ erDiagram
     string snapchat
     string youtube
     string tiktok
+    string websites
   }
 
   BrotherRecord {
@@ -238,7 +257,7 @@ erDiagram
 
 **Always public (not in `fieldPrivacy`):** name, username, chapter, initiation year, inviter accountability fields.
 
-**Optional fields:** default `public` until flipped to `private`; `toPublicProfile()` strips private values for the public card and vCard.
+**Optional fields:** default `public` until flipped to `private`. Cloud Function `syncPublicProfile` writes only public-safe values into `publicProfiles/{uid}`; the public card loads that doc (UI may still call `toPublicProfile()` defensively).
 
 ---
 
@@ -324,17 +343,23 @@ flowchart TD
 
   subgraph visit [Visitor]
     Scan["Scan or open URL"]
+    Alias["usernames slug"]
+    Pub["publicProfiles uid"]
     Page["PublicCardPage"]
     VCard["Save to Contacts .vcf"]
     Scan --> Page
+    Page --> Alias
+    Alias --> Pub
+    Pub --> Page
     Page --> VCard
+    ContactJpg["Storage contact.jpg"] --> VCard
   end
 
   QR --> Scan
   Direct["Shared /card/user link"] --> Page
 ```
 
-Normal shares and vCard profile URLs omit `?via=qr`. Only generated QR codes include the attribution query param.
+Normal shares and vCard profile URLs omit `?via=qr`. Only generated QR codes include the attribution query param. Private contact fields never load from `users/{uid}` on this path. The page paints after the two document reads; inviter lookup and the vCard photo fetch run afterward.
 
 ---
 

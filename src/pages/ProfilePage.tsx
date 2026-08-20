@@ -15,7 +15,16 @@ import { requestBrothersRecapNow } from '../lib/brothersRecap';
 import { clearCardBackground, clearProfilePhoto, detectBrowserTimezone } from '../lib/users';
 import { sanitizeUsernameInput } from '../lib/username';
 import { formatInviter } from '../lib/vcard';
+import {
+  MAX_WEBSITES,
+  createWebsiteDraft,
+  hostnameFromUrl,
+  mapWebsites,
+  normalizeWebsiteUrl,
+  sanitizeWebsitesForSave,
+} from '../lib/websites';
 import ChapterNameLink from '../components/ChapterNameLink';
+import type { ProfileWebsite } from '../types';
 import './ProfilePage.css';
 
 function FieldRow({
@@ -84,6 +93,8 @@ export default function ProfilePage() {
     youtube: profile?.socialMedia?.youtube ?? '',
     tiktok: profile?.socialMedia?.tiktok ?? '',
   });
+  const [websites, setWebsites] = useState<ProfileWebsite[]>(() => mapWebsites(profile?.websites));
+  const [draft, setDraft] = useState<ProfileWebsite>(() => createWebsiteDraft());
   const [privacy, setPrivacy] = useState(() => normalizeFieldPrivacy(profile?.fieldPrivacy));
   const initialPhoto = isUsablePhotoUrl(profile?.profilePicture) ? profile!.profilePicture! : '';
   const initialBg = isUsablePhotoUrl(profile?.cardBackground) ? profile!.cardBackground! : '';
@@ -127,6 +138,8 @@ export default function ProfilePage() {
       youtube: profile.socialMedia?.youtube ?? '',
       tiktok: profile.socialMedia?.tiktok ?? '',
     });
+    setWebsites(mapWebsites(profile.websites));
+    setDraft(createWebsiteDraft());
     setPrivacy(normalizeFieldPrivacy(profile.fieldPrivacy));
     const photo = isUsablePhotoUrl(profile.profilePicture) ? profile.profilePicture! : '';
     setPreviewUrl(photo);
@@ -147,6 +160,17 @@ export default function ProfilePage() {
   const publicPath = `/card/${form.username.trim() || profile.username}`;
   const publicUrl =
     typeof window !== 'undefined' ? `${window.location.origin}${publicPath}` : publicPath;
+  const listedWebsites = websites
+    .map((site) => {
+      const href = normalizeWebsiteUrl(site.url) || (site.url.startsWith('http') ? site.url : '');
+      if (!href) return null;
+      return {
+        ...site,
+        href,
+        host: hostnameFromUrl(href),
+      };
+    })
+    .filter((site): site is ProfileWebsite & { href: string; host: string } => site !== null);
 
   function setFieldPrivacy(field: PrivacyField, value: FieldVisibility) {
     setPrivacy((current) => ({ ...current, [field]: value }));
@@ -168,10 +192,12 @@ export default function ProfilePage() {
     setMessage(null);
     setUploading(true);
     try {
-      const { url, path } = await uploadProfilePhoto(file);
+      const { url, path, contactUrl, contactPath } = await uploadProfilePhoto(file);
       await saveProfile({
         profilePicture: url,
         profilePicturePath: path,
+        contactPhoto: contactUrl,
+        contactPhotoPath: contactPath,
         fieldPrivacy: privacy,
       });
       setPreviewUrl(url);
@@ -246,6 +272,28 @@ export default function ProfilePage() {
     }
   }
 
+  function addWebsite() {
+    if (websites.length >= MAX_WEBSITES) return;
+    const { websites: added, error: websitesError } = sanitizeWebsitesForSave([draft]);
+    if (websitesError) {
+      setError(websitesError);
+      setMessage(null);
+      return;
+    }
+    if (!added.length) {
+      setError('Add a title and website, then press +.');
+      setMessage(null);
+      return;
+    }
+    setWebsites((current) => [...current, ...added].slice(0, MAX_WEBSITES));
+    setDraft(createWebsiteDraft());
+    setError(null);
+  }
+
+  function removeWebsite(id: string) {
+    setWebsites((current) => current.filter((site) => site.id !== id));
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!profile) return;
@@ -253,6 +301,14 @@ export default function ProfilePage() {
     setMessage(null);
     setLoading(true);
     try {
+      const { websites: sanitizedWebsites, error: websitesError } =
+        sanitizeWebsitesForSave([...websites, draft]);
+      if (websitesError) {
+        setError(websitesError);
+        setLoading(false);
+        return;
+      }
+
       await saveProfile({
         name: form.name,
         username: form.username,
@@ -272,12 +328,15 @@ export default function ProfilePage() {
           youtube: form.youtube || undefined,
           tiktok: form.tiktok || undefined,
         },
+        websites: sanitizedWebsites,
         fieldPrivacy: privacy,
         timezone: profile.timezone || detectBrowserTimezone(),
         emailPrefs: {
           brothersRecapEnabled,
         },
       });
+      setWebsites(sanitizedWebsites);
+      setDraft(createWebsiteDraft());
       setMessage(
         form.username !== profile.username
           ? 'Profile saved. Old username links will redirect to your new URL.'
@@ -332,6 +391,21 @@ export default function ProfilePage() {
                 <span>{copied ? 'Link copied' : `/${(form.username || profile.username).trim()}`}</span>
               </button>
             </div>
+            {listedWebsites.length > 0 && (
+              <div className="profile-identity-sites" aria-label="Websites">
+                {listedWebsites.map((site) => (
+                  <a
+                    key={site.id}
+                    className="profile-chip"
+                    href={site.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span>{site.title || site.host}</span>
+                  </a>
+                ))}
+              </div>
+            )}
             <p className="profile-privacy-note">
               Name, chapter, and year stay public. Toggle the rest for your card and contacts.
             </p>
@@ -590,6 +664,93 @@ export default function ProfilePage() {
                 )}
             </select>
           </label>
+        </div>
+      </section>
+
+      <section className="panel profile-section">
+        <div className="profile-section-header">
+          <div className="field-with-privacy-header">
+            <h2>Websites</h2>
+            <PrivacyToggle
+              value={privacy.websites}
+              onChange={(value) => setFieldPrivacy('websites', value)}
+            />
+          </div>
+          <p>Side businesses, organizations, and other sites you want on your card.</p>
+        </div>
+
+        <div className="profile-websites">
+          {listedWebsites.length > 0 ? (
+            <ul className="profile-website-list">
+              {listedWebsites.map((site) => (
+                <li key={site.id} className="profile-website-item">
+                  <a
+                    className="profile-website-link"
+                    href={site.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span className="profile-website-title">{site.title || site.host}</span>
+                    <span className="profile-website-host">{site.host}</span>
+                  </a>
+                  <button
+                    type="button"
+                    className="profile-website-remove"
+                    onClick={() => removeWebsite(site.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="profile-websites-empty">No websites added yet.</p>
+          )}
+
+          <div className="profile-website-composer">
+            <label>
+              Title
+              <input
+                value={draft.title}
+                onChange={(e) => setDraft((current) => ({ ...current, title: e.target.value }))}
+                placeholder="JNASH Dev"
+                maxLength={80}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addWebsite();
+                  }
+                }}
+              />
+            </label>
+            <label>
+              Website
+              <input
+                value={draft.url}
+                onChange={(e) => setDraft((current) => ({ ...current, url: e.target.value }))}
+                placeholder="example.com"
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addWebsite();
+                  }
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="profile-website-add"
+              onClick={addWebsite}
+              disabled={websites.length >= MAX_WEBSITES}
+              aria-label="Add website"
+            >
+              <span aria-hidden>+</span>
+            </button>
+          </div>
         </div>
       </section>
 

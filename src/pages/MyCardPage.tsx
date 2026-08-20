@@ -9,16 +9,18 @@ import {
   cardSurfaceBackground,
   isUsablePhotoUrl,
 } from '../lib/photos';
-import { profilePhotoToDataUrl } from '../lib/storage';
-import { canUseCardFeatures, getUserById } from '../lib/users';
+import { ensureContactPhotoUploaded, profilePhotoToDataUrl } from '../lib/storage';
+import { canUseCardFeatures, setContactPhotoFields } from '../lib/users';
+import { getPublicProfileById } from '../lib/publicProfiles';
 import { isInauguralMember, inauguralSlotOf } from '../lib/foundingPromo';
 import { recordCardImageDownload } from '../lib/userStats';
 import { formatInviter } from '../lib/vcard';
 import './MyCardPage.css';
 
 export default function MyCardPage() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
+  const contactPhotoEnsuredRef = useRef(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [inviterLabel, setInviterLabel] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -46,6 +48,23 @@ export default function MyCardPage() {
   }, [profile?.cardBackground]);
 
   useEffect(() => {
+    if (!profile?.id) return;
+    if (contactPhotoEnsuredRef.current) return;
+    if (profile.contactPhoto || !profile.profilePicture) {
+      contactPhotoEnsuredRef.current = true;
+      return;
+    }
+    contactPhotoEnsuredRef.current = true;
+    void ensureContactPhotoUploaded(profile)
+      .then(async (prepared) => {
+        if (!prepared) return;
+        await setContactPhotoFields(profile.id, prepared.url, prepared.path);
+        await refreshProfile();
+      })
+      .catch(() => undefined);
+  }, [profile, refreshProfile]);
+
+  useEffect(() => {
     if (!qrUrl) return;
     void QRCode.toDataURL(qrUrl, {
       width: 280,
@@ -66,7 +85,7 @@ export default function MyCardPage() {
       };
 
       if (profile.invitedBy) {
-        const inviter = await getUserById(profile.invitedBy);
+        const inviter = await getPublicProfileById(profile.invitedBy);
         if (inviter) {
           fields = {
             invitedByName: fields.invitedByName || inviter.name,
@@ -101,14 +120,6 @@ export default function MyCardPage() {
     setMessage(null);
     const cardEl = cardRef.current;
     try {
-      // Capture the portrait layout even when the desktop preview is landscape.
-      cardEl.classList.add('card-frame--export');
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve());
-        });
-      });
-
       const photoEl = cardEl.querySelector<HTMLImageElement>('img[data-profile-photo="true"]');
       let restoreSrc: string | null = null;
       if (photoEl && showPhoto && profile.profilePicturePath) {
@@ -148,7 +159,6 @@ export default function MyCardPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save card image.');
     } finally {
-      cardEl.classList.remove('card-frame--export');
       setSaving(false);
     }
   }

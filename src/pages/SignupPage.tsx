@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [initiationYear, setInitiationYear] = useState(String(new Date().getFullYear()));
   const [inviteCode, setInviteCode] = useState(params.get('invite') ?? '');
   const [chapterFilter, setChapterFilter] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +37,10 @@ export default function SignupPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     setLoading(true);
     try {
       await signUp({
@@ -57,6 +62,10 @@ export default function SignupPage() {
 
   async function onGoogle() {
     setError(null);
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     setLoading(true);
     try {
       const result = await signInWithGoogle(inviteCode.trim() || undefined);
@@ -179,12 +188,29 @@ export default function SignupPage() {
           </select>
         </label>
 
+        <label className="legal-accept">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+          />
+          <span>
+            I agree to the <Link to="/terms">Terms of Service</Link> and{' '}
+            <Link to="/privacy">Privacy Policy</Link>.
+          </span>
+        </label>
+
         {error && <p className="error">{error}</p>}
 
-        <button type="submit" disabled={loading || !configured}>
+        <button type="submit" disabled={loading || !configured || !acceptedTerms}>
           {loading ? 'Creating account…' : 'Create account'}
         </button>
-        <button type="button" className="secondary" disabled={loading || !configured} onClick={() => void onGoogle()}>
+        <button
+          type="button"
+          className="secondary"
+          disabled={loading || !configured || !acceptedTerms}
+          onClick={() => void onGoogle()}
+        >
           Continue with Google
         </button>
       </form>

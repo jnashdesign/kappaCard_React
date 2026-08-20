@@ -127,7 +127,7 @@
 .main {
   width: min(1024px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 0 0 3rem;
+  padding: 3rem 0;
 }
 
 .footer {
@@ -136,6 +136,25 @@
   color: white;
   background: var(--crimson-deep);
   font-size: 0.9rem;
+}
+
+.footer p {
+  margin: 0;
+}
+
+.footer-links {
+  margin-top: 0.35rem;
+}
+
+.footer a {
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  font-weight: 600;
+}
+
+.footer a:hover {
+  opacity: 0.9;
 }
 
 @media (min-width: 721px) {

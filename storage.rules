@@ -17,8 +17,34 @@ service firebase.storage {
       return request.resource.size < 5 * 1024 * 1024;
     }
 
+    function userData(userId) {
+      return firestore.get(/databases/(default)/documents/users/$(userId)).data;
+    }
+
+    /** Missing fieldPrivacy / field → public (product default). */
+    function fieldIsPublic(userId, field) {
+      let data = userData(userId);
+      let privacy = data.get('fieldPrivacy', {});
+      return privacy.get(field, 'public') != 'private';
+    }
+
+    function isProfileImageName(fileName) {
+      return fileName.matches('profile[.].+');
+    }
+
+    function isContactImageName(fileName) {
+      return fileName.matches('contact[.].+');
+    }
+
+    function isBackgroundImageName(fileName) {
+      return fileName.matches('background[.].+');
+    }
+
     match /profile-pictures/{userId}/{fileName} {
-      allow read: if true;
+      allow read: if isOwner(userId)
+        || (isProfileImageName(fileName) && fieldIsPublic(userId, 'profilePicture'))
+        || (isContactImageName(fileName) && fieldIsPublic(userId, 'profilePicture'))
+        || (isBackgroundImageName(fileName) && fieldIsPublic(userId, 'cardBackground'));
       allow write: if isOwner(userId) && isImage() && underSizeLimit();
       allow delete: if isOwner(userId);
     }

@@ -14,7 +14,7 @@ import { upsertBrotherFromEncounter, upsertBrotherFromQr } from './brothers';
 import { isLikelyBotOrPreviewAgent } from './bots';
 import { db } from './firebase';
 import { qrDevLog } from './qrDevLog';
-import { getUserById } from './users';
+import { getPublicProfileById } from './publicProfiles';
 import type { Encounter, EncounterSource, UserProfile } from '../types';
 
 const ANON_SESSION_KEY = 'kappa:anonSession';
@@ -167,7 +167,7 @@ export async function recordQrEncounter(input: {
       timestamp: now,
     });
     try {
-      const subject = input.subject ?? (await getUserById(ownerId));
+      const subject = input.subject ?? (await getPublicProfileById(ownerId));
       if (!subject) {
         clearRecorded(ownerId, scanner);
         throw new Error('Card owner profile not found.');
@@ -233,7 +233,7 @@ export async function claimAnonymousEncounters(userId: string): Promise<number> 
       if (data.ownerId === uid) return;
 
       const encounter = mapEncounter(d.id, data);
-      const subject = await getUserById(encounter.ownerId);
+      const subject = await getPublicProfileById(encounter.ownerId);
       if (subject) {
         await upsertBrotherFromEncounter(uid, subject, encounter);
       }
@@ -274,7 +274,7 @@ export async function mergeMyEncountersIntoBrothers(viewerId: string): Promise<n
   for (const encounter of encounters) {
     if (!encounter.ownerId || encounter.ownerId === uid) continue;
     try {
-      const subject = await getUserById(encounter.ownerId);
+      const subject = await getPublicProfileById(encounter.ownerId);
       if (!subject) continue;
       await upsertBrotherFromEncounter(uid, subject, encounter);
       merged += 1;

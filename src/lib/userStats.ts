@@ -52,12 +52,14 @@ export function isProfileComplete(user: Pick<
   | 'currentCity'
   | 'profilePicture'
   | 'socialMedia'
+  | 'websites'
 >): boolean {
   if (!user.username?.trim() || !user.chapter?.trim() || !user.initiationYear) return false;
   if (user.phone?.trim()) return true;
   if (user.occupation?.trim() || user.currentEmployer?.trim()) return true;
   if (user.currentCity?.trim()) return true;
   if (user.profilePicture?.trim()) return true;
+  if (user.websites?.some((site) => site.url?.trim())) return true;
   const socials = user.socialMedia ?? {};
   return Boolean(
     socials.linkedin ||

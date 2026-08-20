@@ -12,6 +12,13 @@ export interface SocialMedia {
   tiktok?: string;
 }
 
+/** Optional titled links (side businesses, orgs, personal sites). */
+export interface ProfileWebsite {
+  id: string;
+  title: string;
+  url: string;
+}
+
 /** Lifetime product-action counters (Phase 0 analytics). */
 export interface UserStats {
   logins: number;
@@ -52,10 +59,15 @@ export interface UserProfile {
   profilePicture?: string;
   /** Storage object path for reliable card export via getBlob */
   profilePicturePath?: string;
+  /** Pre-generated 320×320 JPEG for vCard embed (QR recipients skip crop/resize) */
+  contactPhoto?: string;
+  contactPhotoPath?: string;
   /** Custom Kappa Card / public hero background (separate from circle photo) */
   cardBackground?: string;
   cardBackgroundPath?: string;
   socialMedia?: SocialMedia;
+  /** Optional titled websites (side businesses, orgs, personal sites) */
+  websites?: ProfileWebsite[];
   /** Per-field visibility for optional contact details */
   fieldPrivacy?: FieldPrivacy;
   invitedBy?: string;

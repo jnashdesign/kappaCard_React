@@ -36,6 +36,7 @@
     background-image: url(../kappaCard_intraction_hero_extended.png);
     background-size: cover;
     background-position: bottom center;
+    margin-top: -3rem;
 }
 
 .landing-hero-copy,

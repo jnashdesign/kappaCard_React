@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "seed:admin": "node scripts/seed-admin.mjs",
-    "seed:user": "node scripts/seed-user.mjs"
+    "seed:user": "node scripts/seed-user.mjs",
+    "backfill:public-profiles": "node scripts/backfill-public-profiles.mjs"
   },
   "dependencies": {
     "firebase": "^12.16.0",

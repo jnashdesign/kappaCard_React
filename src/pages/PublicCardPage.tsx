@@ -9,7 +9,7 @@ import {
   type ProfileVisitSource,
 } from '../lib/cardUrl';
 import { recordQrEncounter } from '../lib/encounters';
-import { getUserById, getUserByUsername } from '../lib/users';
+import { getPublicProfileById, getPublicProfileByUsername } from '../lib/publicProfiles';
 import { qrDevLog } from '../lib/qrDevLog';
 import { recordPublicCardEngagement } from '../lib/userStats';
 import { cardSurfaceBackground, isUsablePhotoUrl } from '../lib/photos';
@@ -18,6 +18,7 @@ import { toPublicProfile } from '../lib/privacy';
 import { isInauguralMember, inauguralSlotOf } from '../lib/foundingPromo';
 import { publicSocialLinks, type SocialNetwork } from '../lib/social';
 import { downloadVCard, formatInviter } from '../lib/vcard';
+import { hostnameFromUrl } from '../lib/websites';
 import type { UserProfile } from '../types';
 import ChapterNameLink from '../components/ChapterNameLink';
 import PageMeta, { DEFAULT_OG_IMAGE } from '../components/PageMeta';
@@ -154,8 +155,8 @@ export default function PublicCardPage() {
     let active = true;
     setLoading(true);
     setError(null);
-    void getUserByUsername(username)
-      .then(async (result) => {
+    void getPublicProfileByUsername(username)
+      .then((result) => {
         if (!active) return;
         if (!result) {
           setError('Card not found.');
@@ -168,7 +169,6 @@ export default function PublicCardPage() {
         setUser(result);
         setPhotoFailed(false);
         setBgFailed(false);
-        setPhotoFailed(false);
         if (result.username !== username.toLowerCase()) {
           // Preserve ?via=qr (and any other params) across alias → canonical username
           window.history.replaceState(
@@ -178,27 +178,34 @@ export default function PublicCardPage() {
           );
         }
 
-        let fields = {
+        const fields = {
           invitedByName: result.invitedByName,
+          invitedByUsername: result.invitedByUsername,
           invitedByChapter: result.invitedByChapter,
           invitedByInitiationYear: result.invitedByInitiationYear,
         };
+        setResolvedInviter(fields);
+        setInviterLabel(formatInviter(fields));
+        setLoading(false);
+
+        if (result.contactPhoto) {
+          void fetch(result.contactPhoto, { mode: 'cors' }).catch(() => undefined);
+        }
 
         if (result.invitedBy) {
-          const inviter = await getUserById(result.invitedBy);
-          if (!active) return;
-          if (inviter) {
-            fields = {
+          void getPublicProfileById(result.invitedBy).then((inviter) => {
+            if (!active || !inviter) return;
+            const next = {
               invitedByName: fields.invitedByName || inviter.name,
+              invitedByUsername: fields.invitedByUsername || inviter.username,
               invitedByChapter:
                 fields.invitedByChapter || inviter.chapter || inviter.chapterOfInitiation,
               invitedByInitiationYear: fields.invitedByInitiationYear || inviter.initiationYear,
             };
-          }
+            setResolvedInviter(next);
+            setInviterLabel(formatInviter(next));
+          });
         }
-
-        setResolvedInviter(fields);
-        setInviterLabel(formatInviter(fields));
 
         const source = profileVisitSourceFromSearch(window.location.search);
         const viewKey = `kappa:cardView:${result.id}:${source}`;
@@ -274,7 +281,7 @@ export default function PublicCardPage() {
           }
         }
 
-        if (vcardPayload.profilePicture && !result.includedPhoto) {
+        if ((vcardPayload.contactPhoto || vcardPayload.profilePicture) && !result.includedPhoto) {
           setMessage(
             `Contact downloaded, but the photo could not be embedded. Try again in a moment.${collectedNote}`
           );
@@ -361,7 +368,16 @@ export default function PublicCardPage() {
   }
   if (!user) return null;
 
-  const publicUser = toPublicProfile(user);
+  const isOwnProfile = Boolean(viewer && viewer.id === user.id);
+  const publicUser = toPublicProfile(
+    isOwnProfile && viewer
+      ? {
+          ...user,
+          websites: viewer.websites ?? user.websites,
+          fieldPrivacy: viewer.fieldPrivacy ?? user.fieldPrivacy,
+        }
+      : user
+  );
   const showPhoto = isUsablePhotoUrl(publicUser.profilePicture) && !photoFailed;
   const bgUrl =
     isUsablePhotoUrl(publicUser.cardBackground) && !bgFailed
@@ -401,10 +417,20 @@ export default function PublicCardPage() {
       />
     );
   }
+  for (const site of publicUser.websites ?? []) {
+    if (!site.url) continue;
+    detailRows.push(
+      <DetailRow
+        key={site.id || site.url}
+        label={site.title || 'Website'}
+        value={hostnameFromUrl(site.url)}
+        href={site.url}
+      />
+    );
+  }
 
   const socialLinks = publicSocialLinks(publicUser.socialMedia);
   const hasContactDetails = detailRows.length > 0 || socialLinks.length > 0;
-  const isOwnProfile = Boolean(viewer && viewer.id === user.id);
 
   return (
     <section className="public-card-page" data-visit-source={visitSource}>
@@ -488,7 +514,7 @@ export default function PublicCardPage() {
           {savingContact ? 'Preparing contact…' : 'Save to Contacts'}
         </button>
         <p style={{ fontSize: '0.8rem', opacity: 0.95, marginTop: '-10px' }}>
-          *Contact card includes membership details, phone, email, profile photo, and social links
+          *Contact card includes membership details, phone, email, websites, profile photo, and social links
           when set to Public.
         </p>
 

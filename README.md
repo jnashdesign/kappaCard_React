@@ -167,8 +167,20 @@ Members control the preference under **My Profile → Email reminders**. Admins 
 
 ```bash
 npm run build
-firebase deploy --only hosting,functions,firestore:rules --project kappacards-07212025
+firebase deploy --only hosting,functions,firestore:rules,storage --project kappacards-07212025
 ```
+
+### Public profile privacy (required order)
+
+Private email/phone live only on `users/{uid}` (owner/admin). Scanners read `publicProfiles/{uid}`.
+
+1. `firebase deploy --only functions --project kappacards-07212025` (includes `syncPublicProfile` + `backfillPublicProfiles`)
+2. Backfill existing members (admin, while signed in): call `backfillPublicProfiles` **or**  
+   `GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json npm run backfill:public-profiles`
+3. Deploy hosting with the client that uses `getPublicProfileByUsername`
+4. Deploy rules: `firebase deploy --only firestore:rules,storage --project kappacards-07212025`
+
+**Verify:** signed-out Firestore read of `users/{uid}` fails; `publicProfiles/{uid}` has no private fields; public card + vCard still work; marking phone Private removes it from the card and projection; vCard uses `contact.jpg` when present (Storage rules must allow public read of `contact.*` when the profile picture is public).
 
 Live app: https://mykappacard.com
 

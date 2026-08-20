@@ -1,3 +1,4 @@
+import { blobToBase64, blobToSquareJpegBase64 } from './contactPhoto';
 import { profilePhotoBlob } from './storage';
 import { publicCardUrl } from './cardUrl';
 import { socialProfileUrl } from './social';
@@ -21,9 +22,12 @@ type VCardUser = Pick<
   | 'currentCity'
   | 'currentEmployer'
   | 'socialMedia'
+  | 'websites'
   | 'username'
   | 'profilePicture'
   | 'profilePicturePath'
+  | 'contactPhoto'
+  | 'contactPhotoPath'
   | 'invitedByName'
   | 'invitedByChapter'
   | 'invitedByInitiationYear'
@@ -32,38 +36,6 @@ type VCardUser = Pick<
 export type DownloadVCardResult = {
   includedPhoto: boolean;
 };
-
-function bitmapToSquareJpegBase64(bitmap: ImageBitmap): string | null {
-  const size = 320;
-  const side = Math.min(bitmap.width, bitmap.height);
-  const sx = Math.max(0, Math.floor((bitmap.width - side) / 2));
-  const sy = Math.max(0, Math.floor((bitmap.height - side) / 2));
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
-
-  let dataUrl = canvas.toDataURL('image/jpeg', 0.72);
-  if (dataUrl.length > 180_000) {
-    dataUrl = canvas.toDataURL('image/jpeg', 0.55);
-  }
-
-  const marker = 'base64,';
-  const index = dataUrl.indexOf(marker);
-  if (index === -1) return null;
-  return dataUrl.slice(index + marker.length);
-}
-
-async function blobToSquareJpegBase64(blob: Blob): Promise<string | null> {
-  const bitmap = await createImageBitmap(blob);
-  try {
-    return bitmapToSquareJpegBase64(bitmap);
-  } finally {
-    bitmap.close();
-  }
-}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return new Promise((resolve) => {
@@ -81,12 +53,33 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   });
 }
 
-/** Load photo bytes for vCard. Storage CORS must allow GET from the app origin. */
+/** Load photo bytes for vCard. Prefer the pre-generated 320×320 JPEG. */
 async function resolvePhotoBase64(user: VCardUser): Promise<string | null> {
-  // Prefer the tokenized download URL (works once CORS is set on the bucket)
+  if (user.contactPhoto) {
+    try {
+      const response = await fetch(user.contactPhoto, { mode: 'cors' });
+      if (response.ok) {
+        const encoded = await blobToBase64(await response.blob());
+        if (encoded) return encoded;
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (user.contactPhotoPath) {
+    try {
+      const blob = await profilePhotoBlob(user.contactPhotoPath);
+      const encoded = await blobToBase64(blob);
+      if (encoded) return encoded;
+    } catch {
+      // fall through
+    }
+  }
+
   if (user.profilePicture) {
     try {
-      const response = await fetch(user.profilePicture, { mode: 'cors', cache: 'no-store' });
+      const response = await fetch(user.profilePicture, { mode: 'cors' });
       if (response.ok) {
         const encoded = await blobToSquareJpegBase64(await response.blob());
         if (encoded) return encoded;
@@ -192,6 +185,13 @@ export function buildVCard(user: VCardUser, photoBase64?: string | null): string
     if (href) lines.push(`URL;TYPE=TikTok:${escapeVCard(href)}`);
   }
 
+  const websites = user.websites ?? [];
+  for (const site of websites) {
+    if (!site.url) continue;
+    const type = vcardUrlType(site.title);
+    lines.push(`URL;TYPE=${type}:${escapeVCard(site.url)}`);
+  }
+
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'https://mykappacard.com';
   lines.push(`URL:${publicCardUrl(origin, user.username)}`);
@@ -204,7 +204,9 @@ export async function downloadVCard(
   user: VCardUser,
   _options?: { imageEl?: HTMLImageElement | null }
 ): Promise<DownloadVCardResult> {
-  const wantsPhoto = Boolean(user.profilePicture || user.profilePicturePath);
+  const wantsPhoto = Boolean(
+    user.contactPhoto || user.contactPhotoPath || user.profilePicture || user.profilePicturePath
+  );
   // Never block contact download if Storage is slow/CORS-blocked
   const photoBase64 = wantsPhoto ? await withTimeout(resolvePhotoBase64(user), 6000) : null;
 
@@ -243,4 +245,12 @@ function formatName(fullName: string): string {
   const first = parts[0];
   const last = parts.slice(1).join(' ');
   return `${escapeVCard(last)};${escapeVCard(first)};;;`;
+}
+
+/** vCard TYPE tokens are safer as alphanumeric; fall back to Website. */
+function vcardUrlType(title: string | undefined): string {
+  const token = (title ?? '')
+    .replace(/[^A-Za-z0-9]+/g, '')
+    .slice(0, 24);
+  return token || 'Website';
 }

@@ -126,6 +126,25 @@ label {
   font-size: 0.95rem;
 }
 
+label.legal-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+label.legal-accept input {
+  width: auto;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+label.legal-accept a {
+  color: var(--crimson);
+  font-weight: 700;
+}
+
 input,
 select,
 textarea,

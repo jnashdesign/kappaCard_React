@@ -9,7 +9,7 @@ import {
 } from '../lib/brothers';
 import { isUsablePhotoUrl } from '../lib/photos';
 import { toPublicProfile } from '../lib/privacy';
-import { getUserById } from '../lib/users';
+import { getPublicProfileById } from '../lib/publicProfiles';
 import type { BrotherRecord, UserProfile } from '../types';
 import ChapterNameLink from '../components/ChapterNameLink';
 import './BrotherDetailPage.css';
@@ -82,7 +82,7 @@ export default function BrotherDetailPage() {
         setPrivateNote(row.privateNote ?? '');
         setRecentEvents(recentEventNamesFromBrothers(allBrothers));
 
-        const owner = await getUserById(row.subjectUserId);
+        const owner = await getPublicProfileById(row.subjectUserId);
         if (!active) return;
         setLive(owner ? toPublicProfile(owner) : null);
       } catch (err) {

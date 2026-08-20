@@ -36,6 +36,7 @@ import { normalizeFieldPrivacy } from './privacy';
 import { sanitizePhotoUrl } from './photos';
 import { createInviteCode, normalizeUsername, validateUsername } from './username';
 import { EMPTY_USER_STATS, bumpOwnStat, isProfileComplete, mapUserStats } from './userStats';
+import { mapWebsites, sanitizeWebsitesForSave } from './websites';
 
 function requireDb() {
   if (!db) throw new Error('Firebase is not configured. Add your VITE_FIREBASE_* env vars.');
@@ -80,10 +81,13 @@ export function mapUser(id: string, data: DocumentData): UserProfile {
     province: typeof data.province === 'string' ? data.province : undefined,
     profilePicture: sanitizePhotoUrl(data.profilePicture),
     profilePicturePath: typeof data.profilePicturePath === 'string' ? data.profilePicturePath : undefined,
+    contactPhoto: sanitizePhotoUrl(data.contactPhoto),
+    contactPhotoPath: typeof data.contactPhotoPath === 'string' ? data.contactPhotoPath : undefined,
     cardBackground: sanitizePhotoUrl(data.cardBackground),
     cardBackgroundPath:
       typeof data.cardBackgroundPath === 'string' ? data.cardBackgroundPath : undefined,
     socialMedia: data.socialMedia ?? {},
+    websites: mapWebsites(data.websites),
     fieldPrivacy: normalizeFieldPrivacy(data.fieldPrivacy as FieldPrivacy | undefined),
     invitedBy: data.invitedBy,
     invitedByUsername: data.invitedByUsername,
@@ -172,40 +176,29 @@ export async function getUserById(userId: string): Promise<UserProfile | null> {
   return mapUser(snap.id, snap.data());
 }
 
+/**
+ * Full profile by username — owner/admin only once users reads are locked.
+ * Public card pages must use getPublicProfileByUsername instead.
+ */
 export async function getUserByUsername(username: string): Promise<UserProfile | null> {
   const database = requireDb();
   const normalized = normalizeUsername(username);
 
-  const usersQuery = query(collection(database, 'users'), where('username', '==', normalized));
-  const usersSnap = await getDocs(usersQuery);
-  if (!usersSnap.empty) {
-    const first = usersSnap.docs[0];
-    return mapUser(first.id, first.data());
-  }
-
   const aliasSnap = await getDoc(doc(database, 'usernames', normalized));
-  if (aliasSnap.exists()) {
-    const userId = aliasSnap.data().userId as string;
-    return getUserById(userId);
-  }
-
-  return null;
+  if (!aliasSnap.exists()) return null;
+  const userId = aliasSnap.data().userId as string;
+  return getUserById(userId);
 }
 
+/** Username availability via public `usernames` aliases only (no users collection query). */
 export async function isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {
   const database = requireDb();
   const normalized = normalizeUsername(username);
   if (validateUsername(normalized)) return false;
 
-  const aliasRef = doc(database, 'usernames', normalized);
-  const usersQuery = query(collection(database, 'users'), where('username', '==', normalized));
-  const [aliasSnap, usersSnap] = await Promise.all([getDoc(aliasRef), getDocs(usersQuery)]);
-
-  if (aliasSnap.exists()) {
-    return aliasSnap.data().userId === excludeUserId;
-  }
-  if (usersSnap.empty) return true;
-  return usersSnap.docs.every((d) => d.id === excludeUserId);
+  const aliasSnap = await getDoc(doc(database, 'usernames', normalized));
+  if (!aliasSnap.exists()) return true;
+  return aliasSnap.data().userId === excludeUserId;
 }
 
 export async function claimUsername(
@@ -320,9 +313,9 @@ export async function createUserProfile(
     inviteGrantsBasic = Boolean(invite.grantsBasic);
     inviteMultiUse = Boolean(invite.multiUse);
 
-    // Backfill chapter/year from inviter profile when older invites lack them
+    // Backfill chapter/year from inviter public profile when older invites lack them
     if (invitedBy && (!invitedByChapter || !invitedByInitiationYear)) {
-      const inviterSnap = await getDoc(doc(database, 'users', invitedBy));
+      const inviterSnap = await getDoc(doc(database, 'publicProfiles', invitedBy));
       if (inviterSnap.exists()) {
         const inviter = inviterSnap.data();
         invitedByChapter = invitedByChapter || inviter.chapter || inviter.chapterOfInitiation;
@@ -465,6 +458,12 @@ export async function updateUserProfile(
     };
   }
 
+  if ('websites' in safeUpdates) {
+    const { websites, error } = sanitizeWebsitesForSave(safeUpdates.websites ?? []);
+    if (error) throw new Error(error);
+    payload.websites = websites.length ? websites : deleteField();
+  }
+
   if (safeUpdates.name !== undefined) payload.name = safeUpdates.name;
   if (safeUpdates.chapter !== undefined) payload.chapter = safeUpdates.chapter;
   if (safeUpdates.chapterOfInitiation !== undefined) {
@@ -484,6 +483,12 @@ export async function updateUserProfile(
   }
   if (safeUpdates.profilePicturePath !== undefined) {
     payload.profilePicturePath = safeUpdates.profilePicturePath;
+  }
+  if ('contactPhoto' in safeUpdates) {
+    payload.contactPhoto = safeUpdates.contactPhoto || deleteField();
+  }
+  if ('contactPhotoPath' in safeUpdates) {
+    payload.contactPhotoPath = safeUpdates.contactPhotoPath || deleteField();
   }
   if (safeUpdates.cardBackground !== undefined) {
     payload.cardBackground = safeUpdates.cardBackground;
@@ -535,6 +540,8 @@ export async function clearProfilePhoto(userId: string): Promise<void> {
     {
       profilePicture: deleteField(),
       profilePicturePath: deleteField(),
+      contactPhoto: deleteField(),
+      contactPhotoPath: deleteField(),
       updatedAt: serverTimestamp(),
     },
     { merge: true }
@@ -548,6 +555,23 @@ export async function clearCardBackground(userId: string): Promise<void> {
     {
       cardBackground: deleteField(),
       cardBackgroundPath: deleteField(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function setContactPhotoFields(
+  userId: string,
+  contactPhoto: string,
+  contactPhotoPath: string
+): Promise<void> {
+  const database = requireDb();
+  await setDoc(
+    doc(database, 'users', userId),
+    {
+      contactPhoto,
+      contactPhotoPath,
       updatedAt: serverTimestamp(),
     },
     { merge: true }

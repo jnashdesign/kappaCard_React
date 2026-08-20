@@ -70,3 +70,9 @@ Object.assign(exports, {
 
 /* Stripe Checkout + webhook (requires STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET). */
 Object.assign(exports, require('./stripePayments'));
+
+/* Public card projections — sync on users write + admin backfill callable. */
+Object.assign(exports, {
+  syncPublicProfile: require('./publicProfiles').syncPublicProfile,
+  backfillPublicProfiles: require('./publicProfiles').backfillPublicProfiles,
+});

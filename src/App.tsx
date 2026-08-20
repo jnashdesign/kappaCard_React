@@ -13,10 +13,12 @@ import LoginPage from './pages/LoginPage';
 import MetEncounterRedirect from './pages/MetEncounterRedirect';
 import MyCardPage from './pages/MyCardPage';
 import PricingPage from './pages/PricingPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ProfilePage from './pages/ProfilePage';
 import PublicCardPage from './pages/PublicCardPage';
 import RequestInvitePage from './pages/RequestInvitePage';
 import SignupPage from './pages/SignupPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import UpgradePage from './pages/UpgradePage';
 import UpgradeSuccessPage from './pages/UpgradeSuccessPage';
 
@@ -37,6 +39,8 @@ export default function App() {
             <Route path="signup" element={<SignupPage />} />
             <Route path="request-invite" element={<RequestInvitePage />} />
             <Route path="pricing" element={<PricingPage />} />
+            <Route path="privacy" element={<PrivacyPolicyPage />} />
+            <Route path="terms" element={<TermsOfServicePage />} />
             <Route path="card/:username" element={<PublicCardPage />} />
             {/* Keep old /kard links working */}
             <Route path="kard/:username" element={<LegacyKardRedirect />} />

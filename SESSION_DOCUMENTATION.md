@@ -121,7 +121,7 @@ Quick reminders:
 
 - Vite + React + TypeScript SPA/PWA
 - Firebase Auth + Firestore + Storage + Cloud Functions
-- Firestore collections: `users` (+ `collectedCards` Brothers subcollection), `usernames`, `invites`, `inviteRequests`, `encounters` (anon QR claim), `accountDeletions`, `payments`
+- Firestore collections: `users` (+ `collectedCards` Brothers subcollection), `publicProfiles`, `usernames`, `invites`, `inviteRequests`, `encounters` (anon QR claim), `accountDeletions`, `payments`
 - Public Card page builds a vCard download for Add to Contacts
 - My Card page renders branded card + QR and exports PNG via `html-to-image`
 - Seed scripts use Firebase Admin SDK (`scripts/seed-admin.mjs`, `scripts/seed-user.mjs`)
@@ -129,7 +129,7 @@ Quick reminders:
 ## Still to do / follow-ups
 
 - Deploy Stripe secrets + Cloud Functions + webhook endpoint (test mode first) — code ready
-- Deploy updated Firestore rules (public engagement bumps + payments + complimentary invites)
+- Deploy public profile hardening (functions → backfill → hosting → firestore/storage rules) — code ready
 - Enable Google provider in Firebase console + authorized domains
 - Polish Card visual design / additional templates
 - Harden username alias redirect UX with HTTP-level redirects if moving to SSR/hosting later
@@ -454,5 +454,55 @@ Captured a go/no-go list before sharing with potential customers. Product is inv
 
 **Before taking real money:** Stripe live keys + live webhook; Terms + Privacy pages; support contact; branded PWA icons; Search Console sitemap.
 
-**Trust / polish:** optional Cloud Function public profile projection (privacy currently UI-only); refund / “paid but no invite” policy; support email monitored.
+**Trust / polish:** publicProfiles projection + locked users reads (see session below); refund / “paid but no invite” policy; support email monitored.
+
+## Session: Public profile hardening (2026-08-12)
+
+Private contact data is no longer protected only in the UI.
+
+- Cloud Function `syncPublicProfile` (`functions/publicProfiles.js`) writes `publicProfiles/{uid}` from `users/{uid}` using the same field-privacy rules as `toPublicProfile`. Skips rewrites when only stats/milestones change. Deletes projection on user delete.
+- Admin callable `backfillPublicProfiles` + CLI `npm run backfill:public-profiles`.
+- Firestore: `users` read = owner/admin; `publicProfiles` public read, no client writes.
+- Storage: public read of `profile.*` / `background.*` only when matching `fieldPrivacy` is not private (owner always).
+- Client: public card, inviter enrichment, Brothers live refresh, encounters/QR subject fetch use `getPublicProfileById` / `getPublicProfileByUsername`. Username availability uses `usernames` only.
+
+**Deploy order:** functions → backfill → hosting → firestore:rules + storage. See README Deploy section.
+
+**2026-08-12 deploy completed** on `kappacards-07212025`:
+1. `syncPublicProfile` + `backfillPublicProfiles` live (Eventarc needed a retry on first Firestore trigger)
+2. Backfilled 2 existing `publicProfiles`
+3. Hosting released with publicProfiles client
+4. Firestore + Storage rules released (users owner/admin-only; Storage gated by fieldPrivacy)
+
+## Session: Privacy Policy & Terms (2026-08-12)
+
+- Added `/privacy` and `/terms` pages describing actual product practices (Firebase Auth, publicProfiles, Stripe, Resend, invites, Brothers, deletion).
+- Editable operator details in [`src/lib/legal.ts`](src/lib/legal.ts) (contact email, governing law state, effective date).
+- Footer links + sitemap entries; signup requires accepting Terms + Privacy before email or Google signup.
+- Not attorney-reviewed — treat as product/legal starter docs.
+
+## Session: Profile websites (2026-08-17)
+
+- Profile can store multiple titled websites (`users.websites[]`: id, title, url) for side businesses and organizations.
+- Editor: title + URL fields, **+ Add website**, Remove per row. Cap of 12. URLs accept `example.com` or `https://…` (http/https only).
+- One Public/Private toggle for the whole list (`fieldPrivacy.websites`, default public).
+- Public card shows each site as a tappable row; vCard adds `URL;TYPE=…` lines. `syncPublicProfile` projects websites when public.
+- Helper logic lives in [`src/lib/websites.ts`](src/lib/websites.ts).
+- Added sites show as a clickable list on Profile (and chips in the identity banner). Title + URL + **+** commits a site to the list; Remove deletes it. Save still publishes to the card.
+
+## Session: My Card always portrait (2026-08-17)
+
+- Removed the desktop 16:9 landscape layout on `/my-card`. The card stays vertical on every screen, matching mobile and the profile/public card pages.
+- Dropped the `card-frame--export` capture swap; PNG download uses the same portrait markup as the on-screen card.
+
+## Session: Faster QR / public card (2026-08-20)
+
+A friend’s QR scan was slow. Work focused on first paint and vCard photo cost.
+
+- **Do not wait on inviter.** `/card/{username}` renders as soon as `getPublicProfileByUsername()` resolves. Denormalized inviter fields show immediately; live inviter enrichment runs in the background.
+- **Pre-generate the contact JPEG.** Uploading a circle photo also writes `profile-pictures/{uid}/contact.jpg` (320×320). Scanners fetch that small file and base64 it into the vCard instead of download → decode → crop → resize → recompress. Fallback to on-device processing remains for members who have not uploaded since this change. Opening **My Card** backfills missing contact JPEGs.
+- **Allow HTTP cache** on the vCard photo fetch (removed `cache: 'no-store'`).
+- Username lookup was already two document gets (`usernames/{slug}` → `publicProfiles/{uid}`), not a `users` collection query. `publicProfiles` remains the purpose-built public card document.
+
+Storage rules now allow public read of `contact.*` when `fieldPrivacy.profilePicture` is not private. Deploy hosting + `syncPublicProfile` + storage rules together so scanners can read the new object.
 

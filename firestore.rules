@@ -35,8 +35,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Public card pages need to read profiles without login
-      allow read: if true;
+      // Full profile (email/phone/prefs) — owner + admin only.
+      // Public card pages read publicProfiles/{userId} instead.
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if (isOwner(userId) && notChangingPrivileges())
         || isAdmin()
@@ -47,6 +48,12 @@ service cloud.firestore {
       match /collectedCards/{cardId} {
         allow read, write: if isOwner(userId);
       }
+    }
+
+    // Public-safe card projection (Admin SDK / Cloud Function writes only).
+    match /publicProfiles/{userId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /usernames/{username} {

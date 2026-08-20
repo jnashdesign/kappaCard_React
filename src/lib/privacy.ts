@@ -1,4 +1,5 @@
 import type { SocialMedia, UserProfile } from '../types';
+import { mapWebsites } from './websites';
 
 export type PrivacyField =
   | 'email'
@@ -13,7 +14,8 @@ export type PrivacyField =
   | 'instagram'
   | 'snapchat'
   | 'youtube'
-  | 'tiktok';
+  | 'tiktok'
+  | 'websites';
 
 export type FieldVisibility = 'public' | 'private';
 
@@ -33,6 +35,7 @@ export const PRIVACY_FIELDS: PrivacyField[] = [
   'snapchat',
   'youtube',
   'tiktok',
+  'websites',
 ];
 
 /** Defaults keep current product behavior: optional fields are public until changed. */
@@ -50,6 +53,7 @@ export const DEFAULT_FIELD_PRIVACY: Record<PrivacyField, FieldVisibility> = {
   snapchat: 'public',
   youtube: 'public',
   tiktok: 'public',
+  websites: 'public',
 };
 
 export function normalizeFieldPrivacy(privacy?: FieldPrivacy | null): Record<PrivacyField, FieldVisibility> {
@@ -99,9 +103,12 @@ export function toPublicProfile(user: UserProfile): UserProfile {
     currentCity: privacy.currentCity === 'public' ? user.currentCity : undefined,
     profilePicture: privacy.profilePicture === 'public' ? user.profilePicture : undefined,
     profilePicturePath: privacy.profilePicture === 'public' ? user.profilePicturePath : undefined,
+    contactPhoto: privacy.profilePicture === 'public' ? user.contactPhoto : undefined,
+    contactPhotoPath: privacy.profilePicture === 'public' ? user.contactPhotoPath : undefined,
     cardBackground: privacy.cardBackground === 'public' ? user.cardBackground : undefined,
     cardBackgroundPath:
       privacy.cardBackground === 'public' ? user.cardBackgroundPath : undefined,
     socialMedia,
+    websites: privacy.websites === 'public' ? mapWebsites(user.websites) : undefined,
   };
 }

@@ -65,7 +65,7 @@ Legacy `/collected` and `/met` redirect to `/brothers`.
 - **Basic** unlocks Kappa Card PNG generation, inviting, and related card features (`canUseCardFeatures`).
 - Admins can grant/revoke admin and set tiers; complimentary Basic invites use `grantsBasic` on invite docs.
 
-Client profile documents are readable publicly for the live card page; **optional field privacy** is enforced by projecting through `toPublicProfile()` in the UI and vCard path (not by hiding the whole user doc).
+Client `users/{uid}` documents are **owner + admin readable only**. Live `/card/{username}` pages read a denormalized **`publicProfiles/{uid}`** document (public-safe fields only), synced by Cloud Function `syncPublicProfile` on every meaningful `users` write. UI helper `toPublicProfile()` remains a display safety net; security is enforced by rules + the projection.
 
 ---
 
@@ -77,10 +77,11 @@ Firestorestore is the system of record. Top-level collections mirror product dom
 
 Security rules favor:
 
-- Public **reads** where the live card needs them.
-- Strict **creates/updates** (invite requests, anonymous encounters, engagement counter bumps).
+- Public **reads** of `publicProfiles` and `usernames` for live cards (not full `users` docs).
+- Owner/admin **reads** of `users/{uid}` (email, phone, prefs, stats, privacy map).
+- Strict **creates/updates** (invite requests, anonymous encounters, engagement counter bumps on `users`).
 - Owner-only private subcollections (Brothers / `collectedCards`).
-- Admin-only or Admin-SDK-only sensitive collections (`payments`, churn logs read path).
+- Admin-only or Admin-SDK-only sensitive collections (`payments`, churn logs, `publicProfiles` writes).
 
 Indexes: [`firestore.indexes.json`](firestore.indexes.json) (notably `encounters`: `viewerId` + `timestamp` for legacy merge / claim backfill).
 
@@ -90,11 +91,12 @@ Indexes: [`firestore.indexes.json`](firestore.indexes.json) (notably `encounters
 
 **Diagram:** [User profile nested](ARCHITECTURE_DIAGRAMS.md#user-profile-nested)
 
-A `users/{uid}` document holds identity, chapter, optional contact/work fields, nested `socialMedia`, `fieldPrivacy`, and Phase-0 `stats`.
+A `users/{uid}` document holds identity, chapter, optional contact/work fields, nested `socialMedia`, optional `websites` (titled links), `fieldPrivacy`, and Phase-0 `stats` (owner/admin read).
 
-- **Circle photo** and **card background** are separate Storage objects; paths are stored on the profile for CORS-safe export via `getBlob`.
+- Cloud Function `syncPublicProfile` writes `publicProfiles/{uid}` with only fields allowed by `fieldPrivacy` (plus always-public identity / inviter / inaugural badge).
+- **Circle photo** and **card background** are separate Storage objects; public read is gated by `fieldPrivacy` in [`storage.rules`](storage.rules) (owner always allowed).
 - **Always public:** name, username, chapter, initiation year, inviter accountability.
-- **Optional fields** default to public; members can mark them private. Public card and vCard use `toPublicProfile()`.
+- **Optional fields** default to public; members can mark them private. Public card and vCard load from `publicProfiles` (client may still run `toPublicProfile()` defensively).
 
 ---
 
@@ -117,13 +119,16 @@ Usernames are public slugs; Firebase Auth uid remains the immutable key. Renames
 
 | Concern | Approach |
 |---------|----------|
-| Live profile | `/card/{username}` loads Firestore user → public projection |
+| Live profile | `/card/{username}` → `usernames/{slug}` get → `publicProfiles/{uid}` get (two document reads; no collection query) |
 | QR payload | Absolute URL with `?via=qr` ([`src/lib/cardUrl.ts`](src/lib/cardUrl.ts)) |
 | Normal share / vCard URL | Same path **without** `via` (no false QR attribution) |
-| Add to Contacts | Client builds vCard 3.0 with embedded JPEG photo when possible ([`src/lib/vcard.ts`](src/lib/vcard.ts)) |
+| Page load | Render as soon as `publicProfiles` resolves. Inviter enrichment is async and does not block first paint. |
+| Add to Contacts | Fetch pre-generated 320×320 `contact.jpg` and embed as JPEG base64. Fallback: crop/resize the original on-device if no contact JPEG exists yet. |
 | QR auto-download experiment | On QR visits only, one automatic vCard attempt; button always remains |
 
 Profile **views** increment `users.stats.cardViews` (and `cardViewsQr` / `cardViewsDirect`). That is analytics, not a Brothers upsert.
+
+**Contact photo pipeline:** when the owner uploads a circle photo, the client also writes `profile-pictures/{uid}/contact.jpg` (320×320 JPEG) and stores `contactPhoto` / `contactPhotoPath` on the user doc (projected to `publicProfiles` when the photo is public). QR recipients fetch that small file instead of downloading and recompressing the original. Existing photos are backfilled the next time the owner opens My Card.
 
 ---
 
@@ -184,13 +189,14 @@ Account deletion writes an `accountDeletions` row for churn reporting before wip
 
 | Surface | Policy sketch |
 |---------|----------------|
-| `users` | Public read; owner update (no self-escalation of admin/tier); limited public engagement bumps |
+| `users` | Owner/admin read; owner update (no self-escalation of admin/tier); limited public engagement bumps |
+| `publicProfiles` | Public read; Admin SDK / `syncPublicProfile` write only |
 | `collectedCards` | Owner-only (Brothers list + private notes) |
 | `invites` | Public read; create/update constrained by owner / redeemer / admin |
 | `inviteRequests` | Public create (pending); admin manage |
 | `encounters` | Anon create for QR claim; read/update for viewer (or admin); no owner client read in v1 |
 | `payments` | No client access |
-| Storage profile media | Authenticated upload to own prefix; public read for card display |
+| Storage profile media | Owner upload; public read of `profile.*` / `contact.*` / `background.*` only when matching `fieldPrivacy` is not private |
 
 Details: [`firestore.rules`](firestore.rules), [`storage.rules`](storage.rules).
 
@@ -200,8 +206,15 @@ Details: [`firestore.rules`](firestore.rules), [`storage.rules`](storage.rules).
 
 ```bash
 npm run build
-firebase deploy --only hosting,firestore,functions --project kappacards-07212025
+firebase deploy --only hosting,firestore,functions,storage --project kappacards-07212025
 ```
+
+**Public profile hardening order** (do not skip steps):
+
+1. Deploy functions (`syncPublicProfile`, `backfillPublicProfiles`)
+2. Backfill: admin callable `backfillPublicProfiles` **or** `npm run backfill:public-profiles`
+3. Deploy hosting (client reads `publicProfiles`)
+4. Deploy Firestore + Storage rules (lock `users` reads; Storage respects `fieldPrivacy`)
 
 Hosting serves `dist/`. Prefer deploying **firestore** (rules + indexes) when Encounter list indexes change. Stripe and Resend secrets must be set before related functions succeed.
 
